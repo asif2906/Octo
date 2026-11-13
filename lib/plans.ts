@@ -116,31 +116,46 @@ export function getDateKeyInTimezone(date: Date, timeZone: string): string {
   }
 }
 
+const DEFAULT_PRODUCT_IDS: Record<SubscriptionPlan, Record<BillingInterval, string>> = {
+  basic: {
+    weekly: "pdt_0Nrs5TXBiUR9b3Z1SE18H",
+    monthly: "pdt_0Nrs5B7Squ6f4qx2B4y5h",
+  },
+  pro: {
+    weekly: "pdt_0Nrs6B1riVWn7ZDFIWLkA",
+    monthly: "pdt_0Nrs6s7kKP6lbv39stDPZ",
+  },
+}
+
 export function getDodoProductId(
   plan: SubscriptionPlan,
   interval: BillingInterval
 ): string | null {
   const envKey = `DODO_${plan.toUpperCase()}_${interval.toUpperCase()}_PRODUCT_ID`
   const val = process.env[envKey]
-  return val && val.trim() ? val.trim() : null
+  if (val && val.trim()) return val.trim()
+  return DEFAULT_PRODUCT_IDS[plan]?.[interval] ?? null
 }
 
 export function getPlanFromProductId(
   productId: string
 ): { plan: SubscriptionPlan; interval: BillingInterval } | null {
+  const trimmed = productId.trim()
   const mapping: Array<{
     envKey: string
     plan: SubscriptionPlan
     interval: BillingInterval
+    defaultId: string
   }> = [
-    { envKey: "DODO_BASIC_WEEKLY_PRODUCT_ID", plan: "basic", interval: "weekly" },
-    { envKey: "DODO_BASIC_MONTHLY_PRODUCT_ID", plan: "basic", interval: "monthly" },
-    { envKey: "DODO_PRO_WEEKLY_PRODUCT_ID", plan: "pro", interval: "weekly" },
-    { envKey: "DODO_PRO_MONTHLY_PRODUCT_ID", plan: "pro", interval: "monthly" },
+    { envKey: "DODO_BASIC_WEEKLY_PRODUCT_ID", plan: "basic", interval: "weekly", defaultId: "pdt_0Nrs5TXBiUR9b3Z1SE18H" },
+    { envKey: "DODO_BASIC_MONTHLY_PRODUCT_ID", plan: "basic", interval: "monthly", defaultId: "pdt_0Nrs5B7Squ6f4qx2B4y5h" },
+    { envKey: "DODO_PRO_WEEKLY_PRODUCT_ID", plan: "pro", interval: "weekly", defaultId: "pdt_0Nrs6B1riVWn7ZDFIWLkA" },
+    { envKey: "DODO_PRO_MONTHLY_PRODUCT_ID", plan: "pro", interval: "monthly", defaultId: "pdt_0Nrs6s7kKP6lbv39stDPZ" },
   ]
 
   for (const item of mapping) {
-    if (process.env[item.envKey] && process.env[item.envKey]?.trim() === productId.trim()) {
+    const id = process.env[item.envKey]?.trim() || item.defaultId
+    if (id === trimmed) {
       return { plan: item.plan, interval: item.interval }
     }
   }

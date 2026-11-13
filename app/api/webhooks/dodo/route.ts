@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!headers["webhook-id"] || !headers["webhook-signature"]) {
+      console.warn("[Dodo Webhook] Rejected: Missing required signature headers")
       return NextResponse.json(
         { error: "Missing required Dodo webhook signature headers." },
         { status: 401 }
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
       event = dodo.webhooks.unwrap(rawBody, { headers })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Invalid signature"
-      console.error("Dodo webhook signature verification failed:", msg)
+      console.error("[Dodo Webhook] Signature verification failed:", msg)
       return NextResponse.json(
         { error: `Webhook verification failed: ${msg}` },
         { status: 401 }
@@ -62,29 +63,29 @@ export async function POST(req: NextRequest) {
     const eventType: string = event.type || event.event_type || ""
     const eventData: any = event.data || {}
 
+    console.log(`[Dodo Webhook] Received verified event: ${eventType} (ID: ${webhookId})`)
+
     const admin = getSupabaseAdmin()
 
-    // 1. Idempotency Check
-    const { data: existingEvent } = await admin
-      .from("dodo_webhook_events")
-      .select("id, processed")
-      .eq("webhook_id", webhookId)
-      .maybeSingle()
+    // 1. Idempotency Check via RPC
+    const { data: canProcess, error: idempotencyError } = await admin.rpc(
+      "record_dodo_webhook_event",
+      {
+        p_webhook_id: webhookId,
+        p_event_type: eventType,
+      }
+    )
 
-    if (existingEvent?.processed) {
+    if (idempotencyError) {
+      console.error("[Dodo Webhook] Idempotency check failed:", idempotencyError)
+    }
+
+    if (canProcess === false) {
+      console.log(`[Dodo Webhook] Event ${webhookId} already processed. Skipping.`)
       return NextResponse.json(
         { message: "Webhook event already processed." },
         { status: 200 }
       )
-    }
-
-    // Record webhook reception
-    if (!existingEvent) {
-      await admin.from("dodo_webhook_events").insert({
-        webhook_id: webhookId,
-        event_type: eventType,
-        processed: false,
-      })
     }
 
     // 2. Process Subscription Events
@@ -96,24 +97,19 @@ export async function POST(req: NextRequest) {
 
       let userId = sub.metadata?.user_id
 
-      // If user_id is missing from metadata, lookup by existing dodo_customer_id or subscription_id
-      if (!userId && customerId) {
-        const { data: existingSub } = await admin
-          .from("subscriptions")
-          .select("user_id")
-          .eq("dodo_customer_id", customerId)
-          .maybeSingle()
-        userId = existingSub?.user_id
+      // If user_id is missing from metadata, lookup by existing customer_id or subscription_id
+      if (!userId && (customerId || subscriptionId)) {
+        const { data: foundId } = await admin.rpc("get_user_id_by_dodo_id", {
+          p_dodo_id: customerId || subscriptionId,
+        })
+        if (foundId) {
+          userId = foundId
+        }
       }
 
-      if (!userId && subscriptionId) {
-        const { data: existingSub } = await admin
-          .from("subscriptions")
-          .select("user_id")
-          .eq("dodo_subscription_id", subscriptionId)
-          .maybeSingle()
-        userId = existingSub?.user_id
-      }
+      console.log(
+        `[Dodo Webhook] Subscription event data: user_id=${userId}, sub_id=${subscriptionId}, cust_id=${customerId}, product_id=${productId}`
+      )
 
       if (userId) {
         const planInfo = productId ? getPlanFromProductId(productId) : null
@@ -153,46 +149,27 @@ export async function POST(req: NextRequest) {
             status = (sub.status as SubscriptionStatus) || "active"
         }
 
-        const now = new Date().toISOString()
-
-        const updatePayload: Record<string, any> = {
-          dodo_customer_id: customerId || null,
-          dodo_subscription_id: subscriptionId || null,
-          dodo_product_id: productId || null,
-          status,
-          updated_at: now,
-        }
-
-        if (mappedPlan) updatePayload.plan = mappedPlan
-        if (mappedInterval) updatePayload.billing_interval = mappedInterval
-        if (sub.current_period_start)
-          updatePayload.current_period_start = sub.current_period_start
-        if (sub.current_period_end)
-          updatePayload.current_period_end = sub.current_period_end
-        if (typeof sub.cancel_at_period_end === "boolean")
-          updatePayload.cancel_at_period_end = sub.cancel_at_period_end
-        if (sub.cancelled_at) updatePayload.cancelled_at = sub.cancelled_at
-
-        await admin
-          .from("subscriptions")
-          .upsert(
-            {
-              user_id: userId,
-              ...updatePayload,
-            },
-            { onConflict: "user_id" }
-          )
-
-        // Activity log
-        await admin.from("activity_logs").insert({
-          user_id: userId,
-          activity_type: `billing_${eventType.replace(".", "_")}`,
-          description: `Subscription ${status}: ${mappedPlan ? mappedPlan.toUpperCase() : "plan updated"}`,
-          metadata: {
-            dodo_subscription_id: subscriptionId,
-            event_type: eventType,
-          },
+        const { error: syncError } = await admin.rpc("sync_dodo_subscription", {
+          p_user_id: userId,
+          p_customer_id: customerId || null,
+          p_subscription_id: subscriptionId || null,
+          p_product_id: productId || null,
+          p_plan: mappedPlan,
+          p_interval: mappedInterval,
+          p_status: status,
+          p_current_period_start: sub.current_period_start || null,
+          p_current_period_end: sub.current_period_end || null,
+          p_cancel_at_period_end: sub.cancel_at_period_end ?? false,
+          p_cancelled_at: sub.cancelled_at || null,
         })
+
+        if (syncError) {
+          console.error("[Dodo Webhook] sync_dodo_subscription error:", syncError)
+        } else {
+          console.log(`[Dodo Webhook] Subscription successfully synced for user ${userId} -> ${status}`)
+        }
+      } else {
+        console.warn("[Dodo Webhook] Subscription event skipped: user_id could not be resolved.")
       }
     }
 
@@ -204,45 +181,43 @@ export async function POST(req: NextRequest) {
       const customerId = pay.customer_id
       let userId = pay.metadata?.user_id
 
-      if (!userId && customerId) {
-        const { data: existingSub } = await admin
-          .from("subscriptions")
-          .select("user_id")
-          .eq("dodo_customer_id", customerId)
-          .maybeSingle()
-        userId = existingSub?.user_id
+      if (!userId && (customerId || subscriptionId)) {
+        const { data: foundId } = await admin.rpc("get_user_id_by_dodo_id", {
+          p_dodo_id: customerId || subscriptionId,
+        })
+        if (foundId) {
+          userId = foundId
+        }
       }
 
       if (userId && paymentId) {
-        await admin.from("payment_history").upsert(
-          {
-            user_id: userId,
-            dodo_payment_id: paymentId,
-            dodo_subscription_id: subscriptionId || null,
-            amount: (pay.total_amount ?? 0) / 100, // Dodo amount in cents
-            currency: pay.currency || "USD",
-            payment_status: eventType === "payment.succeeded" ? "succeeded" : "failed",
-            payment_type: pay.payment_method_type || null,
-          },
-          { onConflict: "dodo_payment_id" }
-        )
+        const { error: payError } = await admin.rpc("record_dodo_payment", {
+          p_user_id: userId,
+          p_payment_id: paymentId,
+          p_subscription_id: subscriptionId || null,
+          p_amount: (pay.total_amount ?? 0) / 100, // Dodo amount in cents
+          p_currency: pay.currency || "USD",
+          p_payment_status: eventType === "payment.succeeded" ? "succeeded" : "failed",
+          p_payment_type: pay.payment_method_type || null,
+        })
+
+        if (payError) {
+          console.error("[Dodo Webhook] record_dodo_payment error:", payError)
+        } else {
+          console.log(`[Dodo Webhook] Payment ${paymentId} recorded for user ${userId}`)
+        }
       }
     }
 
-    // Mark event as processed
-    await admin
-      .from("dodo_webhook_events")
-      .update({
-        processed: true,
-        processed_at: new Date().toISOString(),
-      })
-      .eq("webhook_id", webhookId)
+    // 4. Mark event as complete
+    await admin.rpc("complete_dodo_webhook_event", {
+      p_webhook_id: webhookId,
+    })
 
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal error"
-    console.error("Dodo webhook processing error:", err)
+    console.error("[Dodo Webhook] Fatal error:", err)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
-

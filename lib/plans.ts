@@ -1,10 +1,6 @@
 import type { BillingInterval, SubscriptionPlan } from "@/types/database"
 
 export const PLAN_LIMITS = {
-  lite: {
-    applicationsPerDay: 5,
-    emailsPerDay: 5,
-  },
   basic: {
     applicationsPerDay: 10,
     emailsPerDay: 15,
@@ -26,83 +22,64 @@ export interface PlanDefinition {
   pricing: PlanPricing
   applicationsPerDay: number
   coldEmailsPerDay: number
+  recipientsDescription: string
   aiTailoringEnabled: boolean
   aiTailoringDailyLimit: number
   followUpsTier: "Basic" | "Advanced"
-  analyticsTier: "Basic" | "Full" | "Advanced"
+  analyticsTier: "Full" | "Advanced"
   features: string[]
   recommended?: boolean
 }
 
 export const PLAN_DEFINITIONS: Record<SubscriptionPlan, PlanDefinition> = {
-  lite: {
-    id: "lite",
-    name: "Lite",
-    pricing: {
-      weekly: 2,
-      monthly: 5,
-    },
-    applicationsPerDay: 5,
-    coldEmailsPerDay: 5,
-    aiTailoringEnabled: true,
-    aiTailoringDailyLimit: 20,
-    followUpsTier: "Basic",
-    analyticsTier: "Basic",
-    features: [
-      "5 auto-apply / day",
-      "5 cold emails / day",
-      "Full ATS resume builder & genuine PDF export",
-      "AI resume tailoring (20 requests/day soft limit)",
-      "Application tracker",
-      "Basic follow-up reminders",
-      "Basic analytics",
-    ],
-  },
   basic: {
     id: "basic",
     name: "Basic",
     pricing: {
-      weekly: 4,
-      monthly: 9,
+      weekly: 5,
+      monthly: 12,
     },
     applicationsPerDay: 10,
     coldEmailsPerDay: 15,
+    recipientsDescription: "Personal recipient list",
     aiTailoringEnabled: true,
     aiTailoringDailyLimit: 20,
-    followUpsTier: "Advanced",
+    followUpsTier: "Basic",
     analyticsTier: "Full",
-    recommended: true,
+    recommended: false,
     features: [
       "10 auto-apply / day",
       "15 cold emails / day",
-      "Full ATS resume builder & genuine PDF export",
-      "AI resume tailoring (20 requests/day soft limit)",
-      "Application tracker",
-      "Advanced follow-up automation",
-      "Full analytics suite",
+      "Personal recipient list",
+      "ATS resume builder (fair use)",
+      "AI resume tailoring (fair use)",
+      "Basic follow-up reminders",
+      "Full application tracker",
     ],
   },
   pro: {
     id: "pro",
     name: "Pro",
     pricing: {
-      weekly: 7,
-      monthly: 19,
+      weekly: 11,
+      monthly: 24,
     },
     applicationsPerDay: 20,
     coldEmailsPerDay: 20,
+    recipientsDescription: "Personal list + founder & CEO database",
     aiTailoringEnabled: true,
-    aiTailoringDailyLimit: 20,
+    aiTailoringDailyLimit: 40,
     followUpsTier: "Advanced",
     analyticsTier: "Advanced",
+    recommended: true,
     features: [
       "20 auto-apply / day",
       "20 cold emails / day",
-      "Full ATS resume builder & genuine PDF export",
-      "AI resume tailoring (20 requests/day soft limit)",
-      "Application tracker",
+      "Curated founder & CEO recipient database",
+      "ATS resume builder (higher fair use allowance)",
+      "AI resume tailoring (higher fair use allowance)",
       "Advanced follow-up automation",
-      "Advanced search analytics",
+      "Full application tracker + advanced analytics",
     ],
   },
 }
@@ -156,8 +133,6 @@ export function getPlanFromProductId(
     plan: SubscriptionPlan
     interval: BillingInterval
   }> = [
-    { envKey: "DODO_LITE_WEEKLY_PRODUCT_ID", plan: "lite", interval: "weekly" },
-    { envKey: "DODO_LITE_MONTHLY_PRODUCT_ID", plan: "lite", interval: "monthly" },
     { envKey: "DODO_BASIC_WEEKLY_PRODUCT_ID", plan: "basic", interval: "weekly" },
     { envKey: "DODO_BASIC_MONTHLY_PRODUCT_ID", plan: "basic", interval: "monthly" },
     { envKey: "DODO_PRO_WEEKLY_PRODUCT_ID", plan: "pro", interval: "weekly" },

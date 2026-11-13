@@ -1,4 +1,4 @@
-export type SubscriptionPlan = "lite" | "basic" | "pro"
+export type SubscriptionPlan = "basic" | "pro"
 export type BillingInterval = "weekly" | "monthly"
 export type SubscriptionStatus =
   | "active"

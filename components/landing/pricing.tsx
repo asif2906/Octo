@@ -9,14 +9,14 @@ export function Pricing() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div className="max-w-2xl space-y-3">
-            <p className="font-mono text-xs font-medium tracking-wider text-muted-foreground uppercase">
-              Pricing Plans
+            <p className="font-mono text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+              Subscription Plans
             </p>
             <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Simple, transparent subscription plans in USD.
+              Predictable power. All taxes included.
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
-              Predictable weekly or monthly billing with clear daily action caps. Choose the tier that matches your job search momentum.
+              Choose between Basic ($5/wk or $12/mo) and Pro ($11/wk or $24/mo). Predictable daily application caps, cold email quotas, and full pipeline tracking.
             </p>
           </div>
         </div>

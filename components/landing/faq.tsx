@@ -20,7 +20,7 @@ const FAQ_ITEMS: FaqItem[] = [
     value: "is-octo-free",
     question: "What subscription plans does Octo.tech offer?",
     answer:
-      "Octo.tech offers three paid tiers: Lite ($2/week or $5/month), Basic ($4/week or $9/month), and Pro ($7/week or $19/month). There is no free tier. All plans include full ATS resume building, genuine PDF export, and verified outreach tracking with predictable daily quotas.",
+      "Octo.tech offers two subscription tiers: Basic ($5/week or $12/month) and Pro ($11/week or $24/month). All listed prices are tax-inclusive with no surprise checkout fees. There is no free or lite tier; access requires an active subscription, giving you predictable daily quotas for applications and cold outreach.",
   },
   {
     value: "ai-resume-tailoring",

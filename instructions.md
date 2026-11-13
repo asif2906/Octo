@@ -1,684 +1,280 @@
-# OCTO.TECH — PHASE 3
-# DODO PAYMENTS INTEGRATION, SUBSCRIPTIONS & PRODUCTION DEPLOYMENT
+# OCTO.TECH — PHASE 4: IMPLEMENT FINAL PRICING, PLAN ENTITLEMENTS & DODO PAYMENTS CONFIGURATION
 
-You are a senior full-stack engineer specializing in Next.js 16, React 19, TypeScript, Supabase, PostgreSQL, Vercel and Dodo Payments.
+You are working on the existing Octo.tech application.
 
-You are continuing development of an EXISTING, DEPLOYED SaaS application.
+**Live application:** https://octo-pi-nine.vercel.app/
 
-Your task is to integrate Dodo Payments into Octo.tech, implement subscription management, enforce paid access, and test the complete billing lifecycle.
+## Objective
 
-## 1. EXISTING PROJECT INFORMATION
+Implement the updated two-plan subscription model across the existing application, configure the Dodo Payments integration, and prepare the application for subscription checkout and billing.
 
-**Live website:**
-https://octo-pi-nine.vercel.app/
+This is a focused update to the existing project. Do not rebuild the application or change unrelated functionality.
 
-**Hosting:** Vercel
+# 1. Final pricing — use these exact prices
 
-**Database and authentication:** Supabase
+There are only two subscription plans: Basic and Pro.
 
-**Payments:** Dodo Payments (to be integrated)
+All displayed prices are inclusive of applicable taxes. Do not add another tax amount to the displayed prices.
 
-**Framework:** Next.js 16 App Router
-
-**Language:** TypeScript
-
-IMPORTANT:
-
-The website is already deployed and Supabase is already connected.
-
-DO NOT:
-- Create a new Next.js project.
-- Create a new Vercel project.
-- Create a new Supabase project.
-- Replace existing authentication.
-- Replace the existing database.
-- Rebuild the landing page from scratch.
-- Disconnect the existing Git repository from Vercel.
-- Overwrite existing environment variables unnecessarily.
-
-First inspect the existing repository and understand the current architecture.
-
-Work directly in the existing project.
-
-All changes must preserve existing functionality.
-
-## 2. UPDATED BUSINESS MODEL
-
-Octo.tech has changed its subscription model.
-
-There is NO FREE PLAN.
-
-There are three paid subscription tiers:
-
-| Plan | Weekly | Monthly |
+| Billing interval | Basic | Pro |
 |---|---:|---:|
-| Lite | $2 | $5 |
-| Basic | $4 | $9 |
-| Pro | $7 | $19 |
+| Weekly | $5 | $11 |
+| Monthly | $12 | $24 |
 
-All prices are in USD.
+Requirements:
+- Weekly and monthly billing must both be available.
+- Clearly label prices as tax-inclusive.
+- Do not advertise additional taxes on top of these displayed prices.
+- Do not silently change the final amount charged at checkout.
+- Configure Dodo product prices and tax settings consistently with the tax-inclusive pricing model.
+- Confirm how Dodo handles tax-inclusive pricing for the account's configured business location and applicable customer locations before enabling live payments.
+- If Dodo's checkout displays a different total, resolve the configuration rather than misleading users.
 
-### Plan limits
+There is no Free plan and no Lite plan.
 
-| Feature | Lite | Basic | Pro |
-|---|---:|---:|---:|
-| Auto-apply/day | 5 | 10 | 20 |
-| Cold emails/day | 5 | 15 | 20 |
-| Resume builder | Yes | Yes | Yes |
-| AI tailoring | Yes | Yes | Yes |
-| Application tracker | Yes | Yes | Yes |
-| Follow-ups | Basic | Advanced | Advanced |
-| Analytics | Basic | Full | Advanced |
+# 2. Plan features and entitlements
 
-No credits.
+Keep the previously established feature limits and entitlements.
 
-No free tier.
+| Feature | Basic | Pro |
+|---|---|---|
+| Auto-apply | 10 per day | 20 per day |
+| Cold emails | 15 per day | 20 per day |
+| Recipients | User's own list | User's own list + founder/CEO database |
+| Resume builder | Yes — fair use | Yes — higher fair-use limit |
+| AI resume tailoring | Yes — fair use | Yes — higher fair-use limit |
+| Follow-up emails | Basic | Advanced |
+| Application tracker | Full | Full + analytics |
 
-Only daily usage limits and subscription billing intervals.
+Do not invent numerical fair-use limits. Keep them configurable.
 
-Users can register without paying, but they must purchase a subscription before accessing the paid dashboard.
+## Pro positioning
 
-## 3. UPDATE THE EXISTING WEBSITE
+Pro costs twice as much as Basic on monthly billing. Its value must be immediately understandable.
 
-Before implementing payments, update the existing public-facing website.
+Make these Pro benefits prominent on the pricing page:
+- Access to the founder and CEO recipient database.
+- Advanced follow-up emails.
+- Higher daily auto-application and cold-email limits.
+- Advanced application analytics.
+- Higher fair-use allowance for resume building and AI tailoring.
 
-The current deployed landing page still contains the old Free, Basic and Pro pricing model.
+Do not exaggerate or advertise database access or features that are not actually implemented.
 
-Replace all outdated pricing information.
+# 3. Update pricing throughout the application
+
+Inspect the entire codebase and update all old plan names, prices, limits, and references.
 
 Update:
-
-- Landing page pricing section.
+- Landing page pricing sections.
 - Pricing page.
-- Signup messaging.
-- Login redirects where appropriate.
-- Dashboard subscription page.
-- Subscription upgrade prompts.
-- FAQ.
-- Any references to free-tier limits.
+- Signup and onboarding pages.
+- Dashboard subscription information.
+- Subscription management page.
+- Checkout plan selection.
+- Upgrade and downgrade flows.
+- Payment success and cancellation pages.
+- FAQ and marketing copy.
+- Backend plan configuration.
+- Database plan records and seed data, where applicable.
+- Usage-limit calculations and feature access checks.
 
-The pricing page must show:
+Remove:
+- Free plan references.
+- Lite plan references.
+- Old prices.
+- Old daily limits.
+- Outdated plan comparisons.
 
-**Lite**
-- $2 weekly.
-- $5 monthly.
-- 5 applications/day.
-- 5 cold emails/day.
+Make sure the pricing is consistent everywhere.
+
+# 4. Dodo Payments — credentials and setup
+
+Inspect the existing Dodo Payments integration before changing anything.
+
+Use the current official Dodo Payments documentation and SDK. Do not use deprecated payment-link approaches if checkout sessions are the supported approach.
+
+## Credentials required from the owner
+
+Identify which credentials and configuration values are required for the existing integration.
+
+At minimum, inspect whether the application needs:
+
+1. Dodo Payments API key.
+2. Dodo Payments webhook signing secret.
+3. Dodo Payments environment or mode (test or live).
+4. Dodo Payments product IDs for Basic Weekly, Basic Monthly, Pro Weekly, and Pro Monthly.
+5. Any additional required configuration supported by the current Dodo integration.
+
+Do not assume the exact environment variable names. Inspect the current code and official SDK documentation, then provide the exact names expected by the application.
+
+**Important security requirements:**
+- Do not ask the owner to paste secret API keys into chat.
+- Do not put API keys or webhook secrets in frontend code.
+- Do not use `NEXT_PUBLIC_` for secret credentials.
+- Do not commit secrets to Git.
+- Add appropriate placeholders to `.env.example`, never real credentials.
+- Configure actual credentials through Vercel environment variables or a secure local `.env.local` file.
+- Never print secret values in logs, reports, screenshots, or error messages.
+
+If credentials are missing, stop before live checkout activation and provide a clear list of the exact values the owner needs to configure.
+
+## Dodo product configuration
+
+The following four recurring products must exist in Dodo:
+
+| Product | Billing | Price |
+|---|---|---:|
+| Basic Weekly | Weekly | $5 |
+| Basic Monthly | Monthly | $12 |
+| Pro Weekly | Weekly | $11 |
+| Pro Monthly | Monthly | $24 |
+
+Use actual product IDs from the Dodo dashboard.
+
+Do not invent product IDs or hardcode placeholder IDs as production values.
+
+If these products do not exist:
+- Explain which products must be created.
+- Provide the exact product names, amounts, currency, billing intervals, and tax-inclusive pricing requirements.
+- Ask the owner to supply the resulting product IDs through secure configuration.
+
+Keep product mapping server-side. Users must not be able to submit arbitrary product IDs or manipulate checkout prices from the browser.
+
+# 5. Checkout and subscription lifecycle
+
+Implement or update the existing checkout flow so that:
+
+- Users must be authenticated before starting checkout.
+- The selected plan and billing interval are validated server-side.
+- The server maps the selection to the correct Dodo product ID.
+- Checkout uses the supported Dodo checkout-session integration.
+- The user is redirected to the hosted checkout securely.
+- Successful payment is confirmed through a verified webhook.
+- A redirect to the success page alone never grants subscription access.
+
+Preserve and verify:
+- Webhook signature verification.
+- Idempotent webhook processing.
+- Duplicate event protection.
+- Subscription renewals.
+- Cancellation handling.
+- Expiration handling.
+- Subscription status synchronization.
+- Customer portal functionality, if already implemented.
+
+Do not weaken existing security or delete existing subscription records.
+
+# 6. Subscription access and enforcement
+
+- Users can register and log in without paying.
+- An active paid subscription is required to access paid dashboard features.
+- Users without an active subscription should be directed to pricing or subscription management.
+- Cancelled subscriptions retain access until the paid period expires, according to the verified subscription status.
+- Expired subscriptions lose paid access.
+- All access checks must be enforced server-side.
+
+Enforce usage limits server-side:
 
 **Basic**
-- $4 weekly.
-- $9 monthly.
-- 10 applications/day.
-- 15 cold emails/day.
+- 10 successful auto-applications per day.
+- 15 successful cold emails per day.
+- Own recipient list only.
+- Basic follow-ups.
+- Full tracker without advanced analytics.
 
 **Pro**
-- $7 weekly.
-- $19 monthly.
-- 20 applications/day.
-- 20 cold emails/day.
+- 20 successful auto-applications per day.
+- 20 successful cold emails per day.
+- Own recipient list plus founder/CEO database.
+- Advanced follow-ups.
+- Full tracker with analytics.
 
-Include a working weekly/monthly toggle.
+Prevent concurrent requests from exceeding limits. Count completed actions rather than failed attempts.
 
-Prices must come from a single central configuration.
+# 7. Pricing page design
 
-Do not hardcode different prices in multiple components.
+Create a clear, polished comparison of Basic and Pro.
 
-Design the pricing section to match the existing Octo.tech design system.
-
-Do not introduce a completely different visual style.
-
-Remove statements such as:
-- Start free.
-- Free plan included.
-- No card required.
-- $0/month.
-
-Replace them with accurate subscription information.
-
-## 4. VERCEL AND SUPABASE ENVIRONMENT
-
-The existing application is hosted on Vercel and already connected to Supabase.
-
-Preserve those connections.
-
-Inspect the existing environment variables before making changes.
-
-Use the existing Supabase URL and public key.
-
-Do not replace working Supabase credentials.
-
-Add the Dodo environment variables through the appropriate environment configuration.
-
-Required variables:
-
-```env
-DODO_PAYMENTS_API_KEY=
-DODO_PAYMENTS_WEBHOOK_SECRET=
-DODO_PAYMENTS_ENVIRONMENT=test_mode
-
-NEXT_PUBLIC_APP_URL=https://octo-pi-nine.vercel.app
-
-DODO_LITE_WEEKLY_PRODUCT_ID=
-DODO_LITE_MONTHLY_PRODUCT_ID=
-
-DODO_BASIC_WEEKLY_PRODUCT_ID=
-DODO_BASIC_MONTHLY_PRODUCT_ID=
-
-DODO_PRO_WEEKLY_PRODUCT_ID=
-DODO_PRO_MONTHLY_PRODUCT_ID=
-```
-
-Use the actual environment variable names required by the selected Dodo SDK version.
-
-IMPORTANT:
-
-- Configure variables in Vercel Project Settings.
-- Use Preview and Development environments for testing.
-- Keep production configuration separate.
-- Do not expose Dodo secret keys to the browser.
-- Never commit `.env.local`.
-- Do not overwrite existing Supabase variables.
-- Do not switch to Dodo live mode without explicit approval.
-
-If credentials are missing, explain exactly what I need to configure.
-
-Do not fabricate credentials or product IDs.
-
-## 5. DODO PAYMENTS SETUP
-
-Use official documentation:
-
-https://docs.dodopayments.com/
-
-Official Next.js adapter:
-
-https://www.npmjs.com/package/@dodopayments/nextjs
-
-Official SDK:
-
-https://www.npmjs.com/package/dodopayments
-
-Before implementation, verify the latest official API methods, webhook events, checkout creation flow and subscription management methods.
-
-Use hosted Checkout Sessions.
-
-Do not use deprecated payment link patterns.
-
-Create six recurring products in the Dodo dashboard:
-
-1. Lite Weekly — $2.
-2. Lite Monthly — $5.
-3. Basic Weekly — $4.
-4. Basic Monthly — $9.
-5. Pro Weekly — $7.
-6. Pro Monthly — $19.
-
-Configure the correct recurring intervals.
-
-Use the actual Dodo product IDs.
-
-Map product IDs to plans using trusted server-side configuration.
-
-The client must never be allowed to supply an arbitrary product ID or price.
-
-## 6. CHECKOUT IMPLEMENTATION
-
-Implement secure checkout endpoints.
-
-Suggested structure:
-
-```text
-app/
-  api/
-    payments/
-      checkout/
-        route.ts
-      portal/
-        route.ts
-    webhooks/
-      dodo/
-        route.ts
-
-  payment/
-    success/
-      page.tsx
-    cancel/
-      page.tsx
-```
-
-Checkout workflow:
-
-1. User signs up or logs in.
-2. User visits pricing.
-3. User chooses a subscription plan.
-4. User chooses weekly or monthly billing.
-5. User clicks Subscribe.
-6. Server authenticates the Supabase user.
-7. Server validates the selected plan and interval.
-8. Server retrieves the corresponding Dodo product ID.
-9. Server creates a hosted Checkout Session.
-10. User is redirected to Dodo.
-11. User completes checkout.
-12. Dodo redirects the user to Octo.tech.
-13. Verified webhook confirms the subscription.
-14. Supabase is updated.
-15. User receives access to the correct subscription tier.
-
-Use the authenticated Supabase user's ID as the trusted customer reference or metadata supported by Dodo.
-
-Never trust a user ID supplied by the browser when activating a subscription.
-
-A successful redirect must NOT automatically activate a subscription.
-
-Only verified Dodo events can grant access.
-
-## 7. SUPABASE DATABASE INTEGRATION
-
-Inspect the existing Supabase schema first.
-
-Create migrations only for missing functionality.
-
-Create or extend the following tables.
-
-### subscriptions
-
-- id
-- user_id
-- dodo_customer_id
-- dodo_subscription_id
-- dodo_product_id
-- plan
-- billing_interval
-- status
-- current_period_start
-- current_period_end
-- cancel_at_period_end
-- cancelled_at
-- created_at
-- updated_at
-
-### payment_history
-
-- id
-- user_id
-- dodo_payment_id
-- dodo_subscription_id
-- amount
-- currency
-- payment_status
-- payment_type
-- created_at
-
-### dodo_webhook_events
-
-- id
-- webhook_id
-- event_type
-- processed
-- processed_at
-- created_at
-
-Use appropriate:
-
-- Foreign keys.
-- Unique constraints.
-- Indexes.
-- Database migrations.
-- RLS policies.
-
-Users can read only their own subscriptions and payment history.
-
-Users cannot manually change their plan or subscription status.
-
-Only trusted server-side webhook processing can update billing records.
-
-Never expose Supabase service-role credentials.
-
-If using Supabase RPC or database functions, secure them appropriately.
-
-## 8. WEBHOOK IMPLEMENTATION
-
-Implement Dodo's official signature verification.
-
-Verify the current official event names and payload structures before writing handlers.
-
-Handle the relevant lifecycle events:
-
-- Subscription activated.
-- Subscription renewed.
-- Subscription updated.
-- Subscription plan changed.
-- Subscription placed on hold.
-- Subscription cancelled.
-- Subscription expired.
-- Payment succeeded.
-- Payment failed.
-- Payment processing.
-
-Use the exact event identifiers from the current Dodo documentation.
-
-Webhook requirements:
-
-- Verify signatures.
-- Reject invalid signatures.
-- Handle duplicate events.
-- Implement idempotency.
-- Handle out-of-order events.
-- Record processing errors.
-- Never activate subscriptions from unverified requests.
-- Do not trust browser redirects.
-
-Use a unique webhook event ID to prevent duplicate processing.
-
-Ensure webhook processing is safe if the same event arrives multiple times.
-
-## 9. SUBSCRIPTION ACCESS CONTROL
-
-Implement server-side subscription verification.
-
-Remove all old Free-plan entitlement logic.
-
-Access policy:
-
-| Status | Access |
-|---|---|
-| Active | Access according to plan |
-| Pending | No paid access |
-| On hold | Apply billing recovery policy |
-| Cancelled but paid period remains | Access until period ends |
-| Expired | No paid access |
-| No subscription | Redirect to pricing |
-
-Protect:
-
-- `/dashboard`
-- `/dashboard/resumes`
-- `/dashboard/applications`
-- `/dashboard/outreach`
-- `/dashboard/follow-ups`
-- `/dashboard/profile`
-- `/dashboard/subscription`
-
-Keep these accessible:
-
-- `/`
-- `/pricing`
-- `/login`
-- `/signup`
-- `/auth/callback`
-- `/payment/success`
-- `/payment/cancel`
-- `/privacy`
-- `/terms`
-
-Preserve the existing Supabase proxy and authentication patterns.
-
-Implement subscription checks on the server.
-
-Do not rely solely on client-side route guards.
-
-Prevent redirect loops.
-
-Allow users without subscriptions to access pricing and payment pages.
-
-## 10. PLAN LIMIT ENFORCEMENT
-
-Create one central plan configuration.
-
-```typescript
-export const PLAN_LIMITS = {
-  lite: {
-    applicationsPerDay: 5,
-    emailsPerDay: 5,
-  },
-  basic: {
-    applicationsPerDay: 10,
-    emailsPerDay: 15,
-  },
-  pro: {
-    applicationsPerDay: 20,
-    emailsPerDay: 20,
-  },
-} as const
-```
-
-Use this configuration throughout the application.
-
-Enforce limits on the server.
-
-Prevent users from bypassing limits through direct API calls or concurrent requests.
-
-Only count successfully completed actions.
-
-Use atomic database operations where needed.
-
-Do not allow client-side plan changes to affect entitlements.
-
-## 11. SUBSCRIPTION MANAGEMENT
-
-Update:
-
-`app/dashboard/subscription/page.tsx`
+Include a billing interval switch between Weekly and Monthly.
 
 Display:
 
-- Current subscription.
-- Current plan.
-- Billing interval.
-- Current price.
-- Subscription status.
-- Current billing period.
-- Next renewal date.
-- Cancellation information.
-- Payment history.
+**Basic**
+- $5 weekly
+- $12 monthly
 
-Provide:
+**Pro**
+- $11 weekly
+- $24 monthly
 
-- Change Plan.
-- Manage Billing.
-- Cancel Subscription.
+Show a clear label such as **Taxes included** beside the prices.
 
-Use Dodo's official Customer Portal.
+Make Pro's additional value obvious, particularly the founder/CEO database and advanced follow-ups.
 
-Create portal sessions server-side after verifying the authenticated user's customer ID.
+Do not make misleading claims about unlimited use. Explain fair-use policies clearly without inventing limits.
 
-Do not accept arbitrary Dodo customer IDs from the client.
+# 8. Preserve the existing infrastructure
 
-For plan changes, use officially supported Dodo subscription update methods.
+This is an existing hosted application.
 
-Explain the effective date and any applicable price changes before confirmation.
+- Keep the existing Next.js architecture.
+- Keep the existing Supabase project and authentication.
+- Keep the existing Vercel project.
+- Preserve user accounts and data.
+- Preserve existing working functionality.
+- Do not create duplicate database tables.
+- Do not replace existing payment infrastructure unnecessarily.
+- Do not change domains or DNS.
+- Do not switch production to live payment mode without explicit approval.
 
-Do not invent proration calculations.
+Inspect the existing codebase, database schema, and environment configuration before making changes.
 
-Update application entitlements only after verified subscription changes.
+# 9. Testing and deployment
 
-## 12. PAYMENT SUCCESS AND CANCEL PAGES
-
-Success page:
-
-`/payment/success`
-
-Display:
-
-"Your payment is being confirmed."
-
-The page must check the application's subscription status using a secure server-side endpoint.
-
-Do not activate subscriptions from the success page.
-
-When the webhook confirms the subscription, show:
-
-"Welcome to Octo.tech!"
-
-Provide a button to access the dashboard.
-
-Cancel page:
-
-`/payment/cancel`
-
-Display:
-
-"Checkout was cancelled."
-
-Allow the user to return to pricing.
-
-Do not create a subscription when checkout is cancelled.
-
-## 13. TESTING
-
-Use Dodo TEST MODE.
-
-Test all six products.
-
-### Lite
-
-- Weekly: $2.
-- Monthly: $5.
-- 5 applications/day.
-- 5 emails/day.
-
-### Basic
-
-- Weekly: $4.
-- Monthly: $9.
-- 10 applications/day.
-- 15 emails/day.
-
-### Pro
-
-- Weekly: $7.
-- Monthly: $19.
-- 20 applications/day.
-- 20 emails/day.
+Start with Dodo test mode.
 
 Test:
-
-1. Successful checkout.
-2. Failed payment.
-3. Invalid webhook signature.
-4. Duplicate webhook.
-5. Subscription activation.
-6. Subscription renewal.
-7. Subscription cancellation.
-8. Subscription expiration.
-9. Plan upgrade.
-10. Plan downgrade.
-11. Weekly-to-monthly change.
-12. Monthly-to-weekly change.
-13. Unpaid dashboard access.
-14. Server-side usage enforcement.
-15. Customer Portal.
-
-Test both localhost and the Vercel Preview deployment.
-
-Use actual signed webhook deliveries, not just mocked success responses.
-
-Do not process real customer payments during testing.
-
-## 14. VERCEL DEPLOYMENT
-
-The project is already deployed at:
-
-https://octo-pi-nine.vercel.app/
-
-Preserve the existing Vercel project and deployment configuration.
-
-Development workflow:
-
-1. Inspect the existing Git repository.
-2. Create a separate feature branch if appropriate.
-3. Implement Dodo integration.
-4. Run TypeScript checks.
-5. Run production build.
-6. Test locally.
-7. Push changes to the connected repository.
-8. Verify the Vercel Preview deployment.
-9. Configure Dodo test webhooks to reach the Preview deployment.
-10. Test the complete checkout and webhook lifecycle.
-11. Fix any deployment-specific issues.
-
-Do not overwrite production with untested code.
-
-Do not modify DNS or custom domain configuration.
-
-Do not expose production secrets in logs or client-side code.
-
-Only deploy the verified implementation to production when approved.
-
-## 15. PRODUCTION CHECKLIST
-
-Before declaring completion:
-
-- Existing Supabase authentication works.
-- Existing user records are preserved.
-- Existing resumes are preserved.
-- Existing applications are preserved.
-- All six Dodo products are correctly mapped.
-- Weekly and monthly checkout works.
-- Webhook signatures are verified.
-- Duplicate events are handled.
-- Subscriptions persist in Supabase.
-- Access is granted only after verified activation.
-- Usage limits are enforced server-side.
-- Cancellation works correctly.
-- Renewal works correctly.
-- Payment history is accurate.
-- Customer Portal works.
-- No secrets are exposed.
-- No old Free-plan references remain.
-- Vercel production build succeeds.
+- Basic Weekly checkout.
+- Basic Monthly checkout.
+- Pro Weekly checkout.
+- Pro Monthly checkout.
+- Correct displayed and charged totals.
+- Tax-inclusive checkout behavior.
+- Successful payments.
+- Failed payments.
+- Duplicate and invalid webhooks.
+- Renewals and cancellations.
+- Subscription expiration.
+- Basic and Pro access restrictions.
+- Daily usage limits.
+- Founder/CEO database restrictions.
+- Existing user accounts and subscriptions.
 
 Run:
 
-```bash
-npx tsc --noEmit
-npm run build
-```
+`npx tsc --noEmit`
 
-Fix relevant errors before declaring completion.
+`npm run build`
 
-## 16. FINAL REPORT
+Use a Vercel Preview deployment for testing. Do not deploy untested changes directly to production.
 
-Provide:
+# 10. Final report and owner action required
 
-1. Files created.
-2. Files modified.
-3. Existing functionality preserved.
-4. Supabase migrations created.
-5. Dodo dependencies installed.
-6. Environment variables configured.
-7. Dodo products configured.
-8. Webhook endpoint configured.
-9. Test results for each plan.
-10. Test results for each billing interval.
-11. Subscription lifecycle test results.
-12. Security measures.
-13. Vercel Preview deployment URL.
-14. Production deployment status.
-15. Remaining manual configuration.
+When implementation is complete, report:
 
-Clearly distinguish implemented, tested, and pending functionality.
+1. Pricing and plan changes made.
+2. Files and components modified.
+3. Database changes or migrations.
+4. Dodo integration changes.
+5. Exact environment variable names required.
+6. Which Dodo product IDs are missing.
+7. Whether tax-inclusive checkout totals have been verified.
+8. Test results.
+9. Build results.
+10. Preview deployment URL.
+11. Exact remaining actions required from the owner.
 
-Do not claim successful payments when only test mode was used.
+If credentials or product IDs are missing, clearly identify them and leave the integration safely configured but inactive until supplied.
 
-Do not switch to live payments without my approval.
-
-# FINAL OBJECTIVE
-
-Integrate Dodo Payments into the existing hosted Octo.tech application without rebuilding it.
-
-The final product must have:
-
-- Three paid plans.
-- Weekly and monthly billing.
-- Six recurring Dodo products.
-- Secure hosted checkout.
-- Verified webhooks.
-- Subscription lifecycle management.
-- Customer Portal.
-- Supabase subscription persistence.
-- Server-side plan enforcement.
-- Proper cancellation and renewal handling.
-- Working Vercel deployment.
-
-**The existing application is the foundation. Extend it, secure it, test it and deploy it carefully. Do not start over.**
+**Final instruction:** Implement the new $5/$12 Basic and $11/$24 Pro pricing throughout Octo.tech. All prices are tax-inclusive. Preserve weekly billing, existing infrastructure, and the existing subscription lifecycle. Do not enable live payments until the owner has supplied the required credentials and approved the live deployment.

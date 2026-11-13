@@ -28,9 +28,9 @@ export async function POST(request: Request) {
     const plan = body.plan
     const interval = body.interval
 
-    if (!plan || !["lite", "basic", "pro"].includes(plan)) {
+    if (!plan || !["basic", "pro"].includes(plan)) {
       return NextResponse.json(
-        { error: "Invalid subscription plan selected." },
+        { error: "Invalid subscription plan selected (must be basic or pro)." },
         { status: 400 }
       )
     }

@@ -65,7 +65,7 @@ export default function PricingPage() {
                 Scale your job search with predictable power.
               </h1>
               <p className="text-lg text-muted-foreground leading-relaxed">
-                Choose between weekly or monthly intervals. All plans include full ATS resume building, genuine PDF export, and verified outreach tracking.
+                Choose between Basic ($5/wk or $12/mo) and Pro ($11/wk or $24/mo). All prices are tax-inclusive with weekly or monthly intervals.
               </p>
             </div>
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowRight, Check, Loader2 } from "lucide-react"
+import { ArrowRight, Check, Loader2, Sparkles, Database, MailCheck, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "cn"
@@ -15,9 +15,8 @@ interface PricingCardsProps {
 }
 
 const TIER_DESCRIPTIONS: Record<SubscriptionPlan, string> = {
-  lite: "Essential daily limits for focused applicants starting their job search.",
-  basic: "Recommended for active job seekers sending weekly applications and cold emails.",
-  pro: "Maximum throughput with priority daily quotas and advanced outreach analytics.",
+  basic: "Comprehensive everyday toolset for active candidates seeking consistent application throughput.",
+  pro: "Maximum power with double throughput, curated founder/CEO database access, and advanced analytics.",
 }
 
 export function PricingCards({ currentPlan, userEmail }: PricingCardsProps) {
@@ -26,7 +25,7 @@ export function PricingCards({ currentPlan, userEmail }: PricingCardsProps) {
   const [loadingPlan, setLoadingPlan] = useState<SubscriptionPlan | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const plans: SubscriptionPlan[] = ["lite", "basic", "pro"]
+  const plans: SubscriptionPlan[] = ["basic", "pro"]
 
   async function handleSubscribe(plan: SubscriptionPlan) {
     setErrorMessage(null)
@@ -43,7 +42,6 @@ export function PricingCards({ currentPlan, userEmail }: PricingCardsProps) {
 
       if (!res.ok) {
         if (res.status === 401) {
-          // Unauthenticated, redirect to signup/login with next
           router.push(`/signup?next=/pricing&plan=${plan}&interval=${interval}`)
           return
         }
@@ -71,7 +69,7 @@ export function PricingCards({ currentPlan, userEmail }: PricingCardsProps) {
             type="button"
             onClick={() => setInterval("weekly")}
             className={cn(
-              "cursor-pointer rounded-full px-4 py-1.5 font-medium transition-all duration-150",
+              "cursor-pointer rounded-full px-5 py-2 font-medium transition-all duration-150",
               interval === "weekly"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -83,17 +81,22 @@ export function PricingCards({ currentPlan, userEmail }: PricingCardsProps) {
             type="button"
             onClick={() => setInterval("monthly")}
             className={cn(
-              "cursor-pointer rounded-full px-4 py-1.5 font-medium transition-all duration-150 flex items-center gap-1.5",
+              "cursor-pointer rounded-full px-5 py-2 font-medium transition-all duration-150 flex items-center gap-1.5",
               interval === "monthly"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
             Monthly billing
-            <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
-              Save ~35%
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+              Save ~40%
             </span>
           </button>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
+          <ShieldCheck className="size-3.5 text-emerald-500" />
+          <span>All displayed prices are tax-inclusive · No surprise fees at checkout</span>
         </div>
 
         {errorMessage && (
@@ -103,14 +106,13 @@ export function PricingCards({ currentPlan, userEmail }: PricingCardsProps) {
         )}
       </div>
 
-      {/* Pricing Cards Grid */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {/* Pricing Cards Grid (2-column layout for Basic and Pro) */}
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 max-w-4xl mx-auto">
         {plans.map((planKey) => {
           const plan = PLAN_DEFINITIONS[planKey]
           const price = interval === "weekly" ? plan.pricing.weekly : plan.pricing.monthly
           const periodLabel = interval === "weekly" ? "/week" : "/month"
           const isCurrent = currentPlan === planKey
-          const isBasic = planKey === "basic"
           const isPro = planKey === "pro"
           const isLoading = loadingPlan === planKey
 
@@ -118,89 +120,79 @@ export function PricingCards({ currentPlan, userEmail }: PricingCardsProps) {
             <div
               key={planKey}
               className={cn(
-                "relative flex flex-col justify-between rounded-xl border p-6 transition-all duration-200 sm:p-7",
-                isBasic
-                  ? "border-foreground bg-card shadow-lg ring-1 ring-foreground/10"
-                  : isPro
-                    ? "border-zinc-800 bg-zinc-950 text-zinc-50 shadow-md"
-                    : "border-border bg-card"
+                "relative flex flex-col justify-between rounded-2xl border p-8 transition-all duration-200",
+                isPro
+                  ? "border-foreground bg-card shadow-2xl ring-2 ring-foreground/15"
+                  : "border-border/80 bg-card/60 backdrop-blur-sm shadow-md"
               )}
             >
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <h3
-                    className={cn(
-                      "text-base font-semibold tracking-tight",
-                      isPro ? "text-white" : "text-foreground"
-                    )}
-                  >
-                    {plan.name}
-                  </h3>
-                  {isBasic ? (
-                    <Badge variant="default" className="text-[11px]">
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-bold tracking-tight text-foreground">
+                      {plan.name}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {isPro ? "Maximum pipeline velocity" : "Active job search suite"}
+                    </p>
+                  </div>
+                  {isPro ? (
+                    <Badge variant="default" className="text-xs px-2.5 py-0.5 font-medium gap-1">
+                      <Sparkles className="size-3" />
                       Recommended
                     </Badge>
-                  ) : null}
-                  {isPro ? (
-                    <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-0.5 text-[11px] font-medium text-zinc-200">
-                      Most Power
-                    </span>
-                  ) : null}
+                  ) : (
+                    <Badge variant="outline" className="text-xs">
+                      Starter Pro
+                    </Badge>
+                  )}
                 </div>
 
-                <div className="mt-5 flex items-baseline gap-1">
-                  <span
-                    className={cn(
-                      "text-4xl font-semibold tracking-tight",
-                      isPro ? "text-white" : "text-foreground"
-                    )}
-                  >
+                <div className="mt-6 flex flex-wrap items-baseline gap-2">
+                  <span className="text-5xl font-extrabold tracking-tight text-foreground">
                     ${price}
                   </span>
-                  <span
-                    className={cn(
-                      "text-sm",
-                      isPro ? "text-zinc-400" : "text-muted-foreground"
-                    )}
-                  >
+                  <span className="text-base text-muted-foreground">
                     {periodLabel}
+                  </span>
+                  <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                    Taxes included
                   </span>
                 </div>
 
-                <p
-                  className={cn(
-                    "mt-3 text-sm leading-relaxed",
-                    isPro ? "text-zinc-400" : "text-muted-foreground"
-                  )}
-                >
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                   {TIER_DESCRIPTIONS[planKey]}
                 </p>
 
+                {/* Quota Highlights Banner */}
                 <div
                   className={cn(
-                    "mt-5 rounded-lg border px-3 py-2 font-mono text-xs",
+                    "mt-6 rounded-xl border p-3.5 font-mono text-xs space-y-1.5",
                     isPro
-                      ? "border-zinc-800 bg-zinc-900/80 text-zinc-300"
-                      : "border-border/80 bg-muted/50 text-foreground/85"
+                      ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
+                      : "border-border/80 bg-muted/40 text-foreground"
                   )}
                 >
-                  {plan.applicationsPerDay} auto-applies/day · {plan.coldEmailsPerDay} cold emails/day
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>Daily Quota</span>
+                    <span>{plan.applicationsPerDay} apps · {plan.coldEmailsPerDay} emails</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {plan.recipientsDescription}
+                  </div>
                 </div>
 
-                <ul className="mt-6 space-y-3 text-sm">
+                {/* Feature Bullet List */}
+                <ul className="mt-6 space-y-3.5 text-sm">
                   {plan.features.map((item) => (
                     <li key={item} className="flex items-start gap-2.5">
-                      <Check
-                        className={cn(
-                          "mt-0.5 size-4 shrink-0",
-                          isPro ? "text-emerald-400" : "text-foreground"
-                        )}
-                      />
-                      <span
-                        className={cn(
-                          isPro ? "text-zinc-300" : "text-muted-foreground"
-                        )}
-                      >
+                      <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                      <span className={cn(
+                        "text-muted-foreground",
+                        isPro && (item.includes("founder") || item.includes("analytics"))
+                          ? "text-foreground font-medium"
+                          : ""
+                      )}>
                         {item}
                       </span>
                     </li>
@@ -208,23 +200,22 @@ export function PricingCards({ currentPlan, userEmail }: PricingCardsProps) {
                 </ul>
               </div>
 
-              <div className="mt-8">
+              <div className="mt-8 pt-6 border-t border-border/50">
                 <Button
                   onClick={() => handleSubscribe(planKey)}
                   disabled={isLoading || isCurrent}
+                  size="lg"
                   className={cn(
-                    "h-10 w-full justify-center font-medium gap-2",
+                    "h-11 w-full justify-center font-medium gap-2 text-sm",
                     isPro
-                      ? "bg-white text-zinc-950 hover:bg-zinc-200"
-                      : isBasic
-                        ? "bg-foreground text-background hover:bg-foreground/90"
-                        : "bg-muted text-foreground hover:bg-muted/80 border border-border"
+                      ? "bg-foreground text-background hover:bg-foreground/90 shadow-md"
+                      : "bg-muted text-foreground hover:bg-muted/80 border border-border"
                   )}
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="size-4 animate-spin" />
-                      Redirecting to Checkout...
+                      Connecting to Checkout...
                     </>
                   ) : isCurrent ? (
                     "Current Plan"
@@ -235,21 +226,20 @@ export function PricingCards({ currentPlan, userEmail }: PricingCardsProps) {
                     </>
                   )}
                 </Button>
+                <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                  Billed in advance · Cancel anytime in portal
+                </p>
               </div>
             </div>
           )
         })}
       </div>
 
-      <div className="text-center text-xs text-muted-foreground space-y-1">
+      <div className="text-center text-xs text-muted-foreground space-y-1 max-w-xl mx-auto pt-4">
         <p>
-          Secure payments powered by Dodo Payments. Switch or cancel anytime from the customer portal.
-        </p>
-        <p className="text-[11px] text-muted-foreground/80">
-          All subscriptions are billed in advance per interval with no hidden fees.
+          Secure checkout handled by Dodo Payments (Merchant of Record). All listed prices are final and inclusive of applicable taxes.
         </p>
       </div>
     </div>
   )
 }
-

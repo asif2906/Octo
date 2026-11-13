@@ -162,7 +162,7 @@ export async function getDashboardContext(): Promise<DashboardContextData> {
   const now = new Date()
   const isPaidActive =
     rawSub &&
-    (rawSub.plan === "lite" || rawSub.plan === "basic" || rawSub.plan === "pro") &&
+    (rawSub.plan === "basic" || rawSub.plan === "pro") &&
     (rawSub.status === "active" ||
       (rawSub.status === "cancelled" &&
         rawSub.current_period_end &&

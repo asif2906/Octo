@@ -31,7 +31,7 @@ export function SubscriptionView({
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError] = useState<string | null>(null)
 
-  const planKey = (subscription.plan as SubscriptionPlan) || "lite"
+  const planKey = (subscription.plan as SubscriptionPlan) || "basic"
   const planDef = PLAN_DEFINITIONS[planKey]
   const interval = subscription.billing_interval || "monthly"
   const price = interval === "weekly" ? planDef.pricing.weekly : planDef.pricing.monthly
@@ -126,11 +126,14 @@ export function SubscriptionView({
             </CardDescription>
           </div>
 
-          <div className="flex items-baseline gap-1 sm:text-right">
-            <span className="text-3xl font-bold tracking-tight text-foreground">
-              ${price}
-            </span>
-            <span className="text-sm text-muted-foreground">{periodLabel}</span>
+          <div className="flex flex-col sm:items-end gap-1 sm:text-right">
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-bold tracking-tight text-foreground">
+                ${price}
+              </span>
+              <span className="text-sm text-muted-foreground">{periodLabel}</span>
+            </div>
+            <span className="text-[11px] font-medium text-emerald-500">Taxes included</span>
           </div>
         </CardHeader>
 

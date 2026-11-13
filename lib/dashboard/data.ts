@@ -6,7 +6,6 @@ import {
   PLAN_DEFINITIONS,
   type UsageSummary,
   getDateKeyInTimezone,
-  getWeekStartKeyInTimezone,
 } from "@/lib/plans"
 import type {
   ProfileRow,
@@ -64,14 +63,16 @@ function buildFallbackSubscription(userId: string): SubscriptionRow {
   return {
     id: "fallback",
     user_id: userId,
-    plan: "free",
-    status: "active",
-    billing_provider: null,
-    external_customer_id: null,
-    external_subscription_id: null,
+    plan: null,
+    status: "pending",
+    dodo_customer_id: null,
+    dodo_subscription_id: null,
+    dodo_product_id: null,
+    billing_interval: null,
     current_period_start: null,
     current_period_end: null,
     cancel_at_period_end: false,
+    cancelled_at: null,
     created_at: now,
     updated_at: now,
   }
@@ -88,7 +89,6 @@ export function computeUsageSummary({
 }): UsageSummary {
   const now = new Date()
   const todayKey = getDateKeyInTimezone(now, timezone)
-  const weekStartKey = getWeekStartKeyInTimezone(now, timezone)
   const planDef = PLAN_DEFINITIONS[plan]
 
   let applicationsUsedToday = 0
@@ -106,28 +106,23 @@ export function computeUsageSummary({
       eventDateKey === todayKey
     ) {
       aiTailoringUsedToday += 1
-    } else if (event.action_type === "cold_email") {
-      if (planDef.coldEmailsPeriod === "day") {
-        if (eventDateKey === todayKey) {
-          coldEmailsUsedInPeriod += 1
-        }
-      } else {
-        const eventWeekKey = getWeekStartKeyInTimezone(createdAt, timezone)
-        if (eventWeekKey === weekStartKey) {
-          coldEmailsUsedInPeriod += 1
-        }
-      }
+    } else if (
+      event.action_type === "cold_email" &&
+      eventDateKey === todayKey
+    ) {
+      coldEmailsUsedInPeriod += 1
     }
   }
 
   return {
     plan,
+    hasActiveSubscription: true,
     timezone,
     applicationsUsedToday,
     applicationsDailyLimit: planDef.applicationsPerDay,
     coldEmailsUsedInPeriod,
-    coldEmailsLimit: planDef.coldEmailsLimit,
-    coldEmailsPeriod: planDef.coldEmailsPeriod,
+    coldEmailsLimit: planDef.coldEmailsPerDay,
+    coldEmailsPeriod: "day",
     aiTailoringUsedToday,
     aiTailoringDailyLimit: planDef.aiTailoringDailyLimit,
     aiTailoringEnabled: planDef.aiTailoringEnabled,
@@ -161,26 +156,24 @@ export async function getDashboardContext(): Promise<DashboardContextData> {
       .gte("created_at", eightDaysAgo),
   ])
 
-  const schemaMissing =
-    isSchemaMissingError(profileRes.error) ||
-    isSchemaMissingError(subscriptionRes.error) ||
-    isSchemaMissingError(usageRes.error)
+  const rawSub = subscriptionRes.data as SubscriptionRow | null
 
-  if (schemaMissing) {
-    const profile = buildFallbackProfile(user)
-    const subscription = buildFallbackSubscription(user.id)
-    return {
-      user,
-      profile,
-      subscription,
-      usage: computeUsageSummary({
-        plan: "free",
-        timezone: profile.timezone,
-        events: [],
-      }),
-      schemaReady: false,
-    }
+  // Server-Side Subscription Access Control
+  const now = new Date()
+  const isPaidActive =
+    rawSub &&
+    (rawSub.plan === "lite" || rawSub.plan === "basic" || rawSub.plan === "pro") &&
+    (rawSub.status === "active" ||
+      (rawSub.status === "cancelled" &&
+        rawSub.current_period_end &&
+        new Date(rawSub.current_period_end) > now))
+
+  if (!isPaidActive) {
+    redirect("/pricing")
   }
+
+  const subscription = rawSub!
+  const plan = subscription.plan as SubscriptionPlan
 
   let profile = profileRes.data as ProfileRow | null
   if (!profile) {
@@ -200,15 +193,6 @@ export async function getDashboardContext(): Promise<DashboardContextData> {
       .maybeSingle()
     profile = (createdProfile as ProfileRow | null) ?? fallback
   }
-
-  const subscription =
-    (subscriptionRes.data as SubscriptionRow | null) ??
-    buildFallbackSubscription(user.id)
-
-  const plan: SubscriptionPlan =
-    subscription.plan === "basic" || subscription.plan === "pro"
-      ? subscription.plan
-      : "free"
 
   const events =
     (usageRes.data as Pick<UsageEventRow, "action_type" | "created_at">[] | null) ??

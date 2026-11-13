@@ -1,5 +1,14 @@
-export type SubscriptionPlan = "free" | "basic" | "pro"
-export type SubscriptionStatus = "active" | "canceled" | "past_due" | "trialing"
+export type SubscriptionPlan = "lite" | "basic" | "pro"
+export type BillingInterval = "weekly" | "monthly"
+export type SubscriptionStatus =
+  | "active"
+  | "on_hold"
+  | "cancelled"
+  | "expired"
+  | "past_due"
+  | "pending"
+  | "paused"
+
 export type ApplicationStatus = "no_reply" | "rejected" | "hired"
 export type ResumeTemplateId =
   | "modern-professional"
@@ -95,16 +104,39 @@ export interface ProfileRow {
 export interface SubscriptionRow {
   id: string
   user_id: string
-  plan: SubscriptionPlan
+  dodo_customer_id: string | null
+  dodo_subscription_id: string | null
+  dodo_product_id: string | null
+  plan: SubscriptionPlan | null
+  billing_interval: BillingInterval | null
   status: SubscriptionStatus
-  billing_provider: string | null
-  external_customer_id: string | null
-  external_subscription_id: string | null
   current_period_start: string | null
   current_period_end: string | null
   cancel_at_period_end: boolean
+  cancelled_at: string | null
   created_at: string
   updated_at: string
+}
+
+export interface PaymentHistoryRow {
+  id: string
+  user_id: string
+  dodo_payment_id: string
+  dodo_subscription_id: string | null
+  amount: number
+  currency: string
+  payment_status: string
+  payment_type: string | null
+  created_at: string
+}
+
+export interface DodoWebhookEventRow {
+  id: string
+  webhook_id: string
+  event_type: string
+  processed: boolean
+  processed_at: string | null
+  created_at: string
 }
 
 export interface EducationRow {
@@ -260,4 +292,3 @@ export interface UsageEventRow {
   reference_id: string | null
   created_at: string
 }
-

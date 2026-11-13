@@ -498,8 +498,7 @@ export function OutreachClient({
           </p>
         </div>
         <Badge variant="outline">
-          {remainingSends}/{usage.coldEmailsLimit} sends left{" "}
-          {usage.coldEmailsPeriod === "week" ? "this week" : "today"}
+          {remainingSends}/{usage.coldEmailsLimit} sends left today
         </Badge>
       </div>
 

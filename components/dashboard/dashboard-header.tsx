@@ -59,7 +59,7 @@ export function DashboardHeader({
             Workspace
           </span>
           <Link href="/dashboard/subscription">
-            <Badge variant={usage.plan === "free" ? "outline" : "default"}>
+            <Badge variant="default" className="capitalize">
               {planDef.name} Plan
             </Badge>
           </Link>

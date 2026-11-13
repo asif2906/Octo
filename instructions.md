@@ -1,897 +1,632 @@
-# Octo.tech — Phase 2: Dashboard, Resume Builder & Core Product Development
+# OCTO.TECH — PHASE 3
+# DODO PAYMENTS INTEGRATION, SUBSCRIPTIONS & PRODUCTION DEPLOYMENT
 
-You are an expert full-stack developer specializing in Next.js 16, React 19, TypeScript, Tailwind CSS, shadcn/ui, Supabase PostgreSQL and Supabase Auth.
+You are a senior full-stack engineer specializing in Next.js 16, React 19, TypeScript, Supabase, PostgreSQL, Vercel and Dodo Payments.
 
-You are continuing development of an existing project called Octo.tech.
+You are continuing development of an EXISTING, DEPLOYED SaaS application.
 
-The landing page and Supabase authentication have already been implemented and are working correctly.
+Your task is to integrate Dodo Payments into Octo.tech, implement subscription management, enforce paid access, and test the complete billing lifecycle.
 
-Your task is to transform this project into a functional AI-powered job-search SaaS platform.
+## 1. EXISTING PROJECT INFORMATION
 
-IMPORTANT: Do not rebuild the landing page or authentication from scratch. Extend the existing codebase.
+**Live website:**
+https://octo-pi-nine.vercel.app/
 
----
+**Hosting:** Vercel
 
-# 1. Product Overview
+**Database and authentication:** Supabase
 
-Octo.tech is an AI-powered job-search platform that helps users:
+**Payments:** Dodo Payments (to be integrated)
 
-- Build professional resumes.
-- Tailor resumes to individual job descriptions.
-- Apply to jobs using assisted form filling.
-- Contact founders, CEOs and hiring managers directly.
-- Track applications and outreach.
-- Manage follow-ups and job-search progress.
+**Framework:** Next.js 16 App Router
 
-**Product tagline:**
+**Language:** TypeScript
 
-Apply smarter. Reach decision-makers. Get hired.
+IMPORTANT:
 
-## Subscription Plans
+The website is already deployed and Supabase is already connected.
 
-| Feature | Free | Basic | Pro |
+DO NOT:
+- Create a new Next.js project.
+- Create a new Vercel project.
+- Create a new Supabase project.
+- Replace existing authentication.
+- Replace the existing database.
+- Rebuild the landing page from scratch.
+- Disconnect the existing Git repository from Vercel.
+- Overwrite existing environment variables unnecessarily.
+
+First inspect the existing repository and understand the current architecture.
+
+Work directly in the existing project.
+
+All changes must preserve existing functionality.
+
+## 2. UPDATED BUSINESS MODEL
+
+Octo.tech has changed its subscription model.
+
+There is NO FREE PLAN.
+
+There are three paid subscription tiers:
+
+| Plan | Weekly | Monthly |
+|---|---:|---:|
+| Lite | $2 | $5 |
+| Basic | $4 | $9 |
+| Pro | $7 | $19 |
+
+All prices are in USD.
+
+### Plan limits
+
+| Feature | Lite | Basic | Pro |
 |---|---:|---:|---:|
-| Monthly price | $0 | $9 | $19 |
-| Applications/day | 3 | 10 | 20 |
-| Cold emails | 5/week | 15/day | 20/day |
+| Auto-apply/day | 5 | 10 | 20 |
+| Cold emails/day | 5 | 15 | 20 |
 | Resume builder | Yes | Yes | Yes |
-| AI tailoring | No | Yes | Yes |
-| Follow-ups | No | Basic | Advanced |
-| Tracker | Basic | Full | Full + analytics |
-| Founder database | No | No | Planned |
+| AI tailoring | Yes | Yes | Yes |
+| Application tracker | Yes | Yes | Yes |
+| Follow-ups | Basic | Advanced | Advanced |
+| Analytics | Basic | Full | Advanced |
 
-Do not introduce credits. Use daily and weekly limits only.
+No credits.
 
----
+No free tier.
 
-# 2. Development Rules
+Only daily usage limits and subscription billing intervals.
 
-Before writing code:
+Users can register without paying, but they must purchase a subscription before accessing the paid dashboard.
 
-1. Inspect the existing project.
-2. Understand its folder structure.
-3. Inspect installed dependencies.
-4. Check the current Supabase authentication implementation.
-5. Check the existing database schema.
-6. Preserve all working functionality.
+## 3. UPDATE THE EXISTING WEBSITE
 
-Technical requirements:
+Before implementing payments, update the existing public-facing website.
 
-- Next.js 16 App Router.
-- React 19.
-- TypeScript.
-- Tailwind CSS.
-- shadcn/ui.
-- Lucide React.
-- Supabase PostgreSQL.
-- Supabase SSR authentication.
+The current deployed landing page still contains the old Free, Basic and Pro pricing model.
 
-Use Server Components by default.
+Replace all outdated pricing information.
 
-Use Client Components only when interaction requires them.
+Update:
 
-Use Supabase Row Level Security (RLS) to protect user data.
+- Landing page pricing section.
+- Pricing page.
+- Signup messaging.
+- Login redirects where appropriate.
+- Dashboard subscription page.
+- Subscription upgrade prompts.
+- FAQ.
+- Any references to free-tier limits.
 
-Never expose service-role keys.
+The pricing page must show:
 
-Do not use mock data as a substitute for backend functionality.
+**Lite**
+- $2 weekly.
+- $5 monthly.
+- 5 applications/day.
+- 5 cold emails/day.
 
-If external API credentials are unavailable, build the integration interface and explain what configuration is required.
+**Basic**
+- $4 weekly.
+- $9 monthly.
+- 10 applications/day.
+- 15 cold emails/day.
 
----
+**Pro**
+- $7 weekly.
+- $19 monthly.
+- 20 applications/day.
+- 20 cold emails/day.
 
-# 3. Dashboard UI
+Include a working weekly/monthly toggle.
 
-Create a professional dashboard that becomes the central workspace of Octo.tech.
+Prices must come from a single central configuration.
 
-The dashboard should feel like a premium SaaS product.
+Do not hardcode different prices in multiple components.
 
-Design inspiration:
+Design the pricing section to match the existing Octo.tech design system.
 
-- Linear
-- Notion
-- Vercel
-- Stripe
+Do not introduce a completely different visual style.
 
-Design requirements:
+Remove statements such as:
+- Start free.
+- Free plan included.
+- No card required.
+- $0/month.
 
-- Minimalist.
-- Modern typography.
-- Consistent spacing.
-- Clean navigation.
-- Subtle animations.
-- Responsive design.
-- Beautiful data visualizations.
-- Professional icons.
-- Light theme as the initial default.
+Replace them with accurate subscription information.
 
-Avoid excessive gradients, unnecessary decorations and generic dashboard templates.
+## 4. VERCEL AND SUPABASE ENVIRONMENT
 
-## Dashboard Layout
+The existing application is hosted on Vercel and already connected to Supabase.
 
-Create:
+Preserve those connections.
 
-`app/dashboard/page.tsx`
+Inspect the existing environment variables before making changes.
 
-Create reusable components inside:
+Use the existing Supabase URL and public key.
 
-`components/dashboard/`
+Do not replace working Supabase credentials.
 
-Suggested components:
+Add the Dodo environment variables through the appropriate environment configuration.
 
-- sidebar.tsx
-- dashboard-header.tsx
-- welcome-section.tsx
-- stats-cards.tsx
-- recent-applications.tsx
-- recent-activity.tsx
-- quick-actions.tsx
-- usage-overview.tsx
+Required variables:
 
-## Sidebar Navigation
+```env
+DODO_PAYMENTS_API_KEY=
+DODO_PAYMENTS_WEBHOOK_SECRET=
+DODO_PAYMENTS_ENVIRONMENT=test_mode
 
-Include:
+NEXT_PUBLIC_APP_URL=https://octo-pi-nine.vercel.app
 
-**Workspace**
-- Overview
-- My Resumes
-- Applications
-- Cold Outreach
-- Follow-ups
+DODO_LITE_WEEKLY_PRODUCT_ID=
+DODO_LITE_MONTHLY_PRODUCT_ID=
 
-**Account**
-- Profile
-- Subscription
-- Settings
+DODO_BASIC_WEEKLY_PRODUCT_ID=
+DODO_BASIC_MONTHLY_PRODUCT_ID=
 
-Requirements:
+DODO_PRO_WEEKLY_PRODUCT_ID=
+DODO_PRO_MONTHLY_PRODUCT_ID=
+```
 
-- Active navigation highlighting.
-- Responsive mobile sidebar.
-- Collapsible sidebar on desktop.
-- Octo.tech branding.
-- Logout option.
-- User avatar and email.
+Use the actual environment variable names required by the selected Dodo SDK version.
 
-Every navigation item must lead to a real page or a clearly marked coming-soon page.
+IMPORTANT:
 
-Do not create nonfunctional buttons.
+- Configure variables in Vercel Project Settings.
+- Use Preview and Development environments for testing.
+- Keep production configuration separate.
+- Do not expose Dodo secret keys to the browser.
+- Never commit `.env.local`.
+- Do not overwrite existing Supabase variables.
+- Do not switch to Dodo live mode without explicit approval.
 
-## Dashboard Welcome Section
+If credentials are missing, explain exactly what I need to configure.
 
-Display:
+Do not fabricate credentials or product IDs.
 
-"Welcome back, [User Name]"
+## 5. DODO PAYMENTS SETUP
 
-Supporting text:
+Use official documentation:
 
-"Here's what's happening with your job search."
+https://docs.dodopayments.com/
 
-Include:
+Official Next.js adapter:
 
-- Current subscription plan.
-- Upgrade button when applicable.
-- Quick action to create a resume.
-- Quick action to add an application.
+https://www.npmjs.com/package/@dodopayments/nextjs
 
-## Statistics Cards
+Official SDK:
 
-Create four cards:
+https://www.npmjs.com/package/dodopayments
 
-1. Applications Sent.
-2. Awaiting Response.
-3. Rejected.
-4. Hired.
+Before implementation, verify the latest official API methods, webhook events, checkout creation flow and subscription management methods.
 
-All statistics must come from Supabase.
+Use hosted Checkout Sessions.
 
-Do not hardcode numbers.
+Do not use deprecated payment link patterns.
 
-For a new user, display zero and an appropriate empty state.
+Create six recurring products in the Dodo dashboard:
 
-## Recent Applications
+1. Lite Weekly — $2.
+2. Lite Monthly — $5.
+3. Basic Weekly — $4.
+4. Basic Monthly — $9.
+5. Pro Weekly — $7.
+6. Pro Monthly — $19.
 
-Display:
+Configure the correct recurring intervals.
 
-- Company.
-- Job title.
-- Application date.
-- Resume used.
-- Current status.
+Use the actual Dodo product IDs.
 
-Statuses:
+Map product IDs to plans using trusted server-side configuration.
 
-- No reply.
-- Rejected.
-- Hired.
+The client must never be allowed to supply an arbitrary product ID or price.
 
-Include a link to view all applications.
+## 6. CHECKOUT IMPLEMENTATION
 
-## Recent Activity
+Implement secure checkout endpoints.
 
-Display recent events such as:
+Suggested structure:
 
-- Resume created.
-- Resume updated.
-- Application added.
-- Email sent.
-- Application status changed.
+```text
+app/
+  api/
+    payments/
+      checkout/
+        route.ts
+      portal/
+        route.ts
+    webhooks/
+      dodo/
+        route.ts
 
-Only display events that actually exist in the database.
+  payment/
+    success/
+      page.tsx
+    cancel/
+      page.tsx
+```
 
-## Usage Overview
+Checkout workflow:
 
-Display the user's remaining daily and weekly limits.
+1. User signs up or logs in.
+2. User visits pricing.
+3. User chooses a subscription plan.
+4. User chooses weekly or monthly billing.
+5. User clicks Subscribe.
+6. Server authenticates the Supabase user.
+7. Server validates the selected plan and interval.
+8. Server retrieves the corresponding Dodo product ID.
+9. Server creates a hosted Checkout Session.
+10. User is redirected to Dodo.
+11. User completes checkout.
+12. Dodo redirects the user to Octo.tech.
+13. Verified webhook confirms the subscription.
+14. Supabase is updated.
+15. User receives access to the correct subscription tier.
 
-Examples:
+Use the authenticated Supabase user's ID as the trusted customer reference or metadata supported by Dodo.
 
-Free:
-- Applications: 3/day.
-- Cold emails: 5/week.
+Never trust a user ID supplied by the browser when activating a subscription.
 
-Basic:
-- Applications: 10/day.
-- Cold emails: 15/day.
+A successful redirect must NOT automatically activate a subscription.
 
-Pro:
-- Applications: 20/day.
-- Cold emails: 20/day.
+Only verified Dodo events can grant access.
 
-Calculate remaining limits using actual server-side usage records.
+## 7. SUPABASE DATABASE INTEGRATION
 
----
+Inspect the existing Supabase schema first.
 
-# 4. Database Architecture
+Create migrations only for missing functionality.
 
-Use Supabase PostgreSQL.
+Create or extend the following tables.
 
-Create migrations for the required tables.
-
-All user-owned records must be associated with `auth.users.id`.
-
-## Table 1: profiles
-
-Fields:
-
-- id (UUID, primary key, references auth.users.id)
-- full_name
-- email
-- phone
-- location
-- headline
-- professional_summary
-- linkedin_url
-- github_url
-- portfolio_url
-- created_at
-- updated_at
-
-## Table 2: education
-
-Fields:
+### subscriptions
 
 - id
 - user_id
-- institution
-- degree
-- field_of_study
-- start_date
-- end_date
-- grade
-- description
-- created_at
-
-## Table 3: experience
-
-Fields:
-
-- id
-- user_id
-- company
-- job_title
-- employment_type
-- location
-- start_date
-- end_date
-- currently_working
-- description
-- created_at
-
-## Table 4: skills
-
-Fields:
-
-- id
-- user_id
-- skill_name
-- proficiency
-- created_at
-
-## Table 5: projects
-
-Fields:
-
-- id
-- user_id
-- project_name
-- description
-- technologies
-- project_url
-- github_url
-- start_date
-- end_date
-- created_at
-
-## Table 6: resumes
-
-Fields:
-
-- id
-- user_id
-- title
-- template
-- content (JSONB)
-- is_primary
-- created_at
-- updated_at
-
-## Table 7: resume_versions
-
-Fields:
-
-- id
-- user_id
-- resume_id
-- job_title
-- company
-- job_description
-- content (JSONB)
-- created_at
-
-## Table 8: applications
-
-Fields:
-
-- id
-- user_id
-- company
-- job_title
-- job_url
-- location
-- job_description
-- resume_id
-- resume_version_id
-- application_date
+- dodo_customer_id
+- dodo_subscription_id
+- dodo_product_id
+- plan
+- billing_interval
 - status
-- notes
+- current_period_start
+- current_period_end
+- cancel_at_period_end
+- cancelled_at
 - created_at
 - updated_at
 
-Allowed statuses:
-
-- no_reply
-- rejected
-- hired
-
-Default:
-
-no_reply
-
-## Table 9: activity_logs
-
-Fields:
+### payment_history
 
 - id
 - user_id
-- activity_type
-- description
-- metadata (JSONB)
+- dodo_payment_id
+- dodo_subscription_id
+- amount
+- currency
+- payment_status
+- payment_type
 - created_at
 
-## Database Security
+### dodo_webhook_events
 
-Implement Row Level Security on all user-owned tables.
+- id
+- webhook_id
+- event_type
+- processed
+- processed_at
+- created_at
 
-Rules:
+Use appropriate:
 
-- Users can only read their own records.
-- Users can only insert their own records.
-- Users can only update their own records.
-- Users can only delete their own records.
-- Never rely on client-side filtering for security.
+- Foreign keys.
+- Unique constraints.
+- Indexes.
+- Database migrations.
+- RLS policies.
 
-Create indexes on frequently queried user_id and created_at columns.
+Users can read only their own subscriptions and payment history.
 
-Create a database trigger to automatically create a profile when a new user registers, if this does not already exist.
+Users cannot manually change their plan or subscription status.
 
-Use migrations rather than manually creating undocumented database structures.
+Only trusted server-side webhook processing can update billing records.
 
----
+Never expose Supabase service-role credentials.
 
-# 5. User Profile
+If using Supabase RPC or database functions, secure them appropriately.
 
-Create:
+## 8. WEBHOOK IMPLEMENTATION
 
-`app/dashboard/profile/page.tsx`
+Implement Dodo's official signature verification.
 
-Users should be able to manage their professional information.
+Verify the current official event names and payload structures before writing handlers.
 
-Sections:
+Handle the relevant lifecycle events:
 
-**Personal Information**
-- Full name.
-- Email.
-- Phone.
-- Location.
-- Professional headline.
+- Subscription activated.
+- Subscription renewed.
+- Subscription updated.
+- Subscription plan changed.
+- Subscription placed on hold.
+- Subscription cancelled.
+- Subscription expired.
+- Payment succeeded.
+- Payment failed.
+- Payment processing.
 
-**Professional Links**
-- LinkedIn.
-- GitHub.
-- Portfolio.
+Use the exact event identifiers from the current Dodo documentation.
 
-**Professional Summary**
-- About me.
-- Career objectives.
-- Short professional introduction.
+Webhook requirements:
 
-Requirements:
+- Verify signatures.
+- Reject invalid signatures.
+- Handle duplicate events.
+- Implement idempotency.
+- Handle out-of-order events.
+- Record processing errors.
+- Never activate subscriptions from unverified requests.
+- Do not trust browser redirects.
 
-- Fetch existing data from Supabase.
-- Allow users to edit and save.
-- Show loading states.
-- Show success and error messages.
-- Validate input.
-- Automatically save updated_at.
+Use a unique webhook event ID to prevent duplicate processing.
 
-The profile should become the central source of information for resume generation.
+Ensure webhook processing is safe if the same event arrives multiple times.
 
----
+## 9. SUBSCRIPTION ACCESS CONTROL
 
-# 6. Resume Builder
+Implement server-side subscription verification.
 
-This is the most important feature of the initial product.
+Remove all old Free-plan entitlement logic.
 
-Create:
+Access policy:
 
-`app/dashboard/resumes/page.tsx`
-
-`app/dashboard/resumes/new/page.tsx`
-
-`app/dashboard/resumes/[id]/page.tsx`
-
-Components:
-
-`components/resume/`
-
-- resume-editor.tsx
-- personal-info-form.tsx
-- education-form.tsx
-- experience-form.tsx
-- skills-form.tsx
-- projects-form.tsx
-- resume-preview.tsx
-- template-selector.tsx
-- resume-actions.tsx
-
-## Resume Builder Interface
-
-Create a professional split-screen editor.
-
-Left side:
-
-Editable resume sections.
-
-Right side:
-
-Live resume preview.
-
-Users should be able to:
-
-- Add personal information.
-- Add education.
-- Add work experience.
-- Add skills.
-- Add projects.
-- Edit existing entries.
-- Delete entries.
-- Reorder sections.
-- Select templates.
-- Save resumes.
-- Export resumes as PDF.
-
-## Resume Templates
-
-Create at least three templates:
-
-1. Modern Professional.
-2. Minimal ATS.
-3. Classic Professional.
-
-Templates should be clean and suitable for freshers and experienced candidates.
-
-Important:
-
-- ATS-friendly formatting.
-- No unnecessary graphics.
-- Professional typography.
-- Consistent spacing.
-- Proper headings.
-- Readable PDF output.
-
-The resume preview should update as users edit their information.
-
-## PDF Export
-
-Implement genuine PDF generation.
-
-The exported PDF must:
-
-- Preserve formatting.
-- Support multiple pages.
-- Avoid cutting off text.
-- Use selectable text rather than screenshots.
-- Have a professional layout.
-
-Do not simply export a screenshot of the resume.
-
-Free users can create and export basic resumes.
-
----
-
-# 7. AI Resume Tailoring
-
-This feature is available only to Basic and Pro users.
-
-Create:
-
-`app/dashboard/resumes/tailor/page.tsx`
-
-Workflow:
-
-1. User selects an existing resume.
-2. User pastes a job description.
-3. User optionally enters company and job title.
-4. User clicks Tailor Resume.
-5. Backend sends relevant information to the AI provider.
-6. AI generates an improved resume based on the job description.
-7. User reviews the changes.
-8. User saves the tailored version.
-
-Requirements:
-
-- Never invent work experience.
-- Never invent qualifications.
-- Never invent certifications.
-- Never fabricate skills.
-- Preserve factual accuracy.
-- Improve relevance and wording.
-- Use relevant keywords naturally.
-- Maintain ATS-friendly formatting.
-
-Save tailored versions in `resume_versions`.
-
-Implement server-side plan verification.
-
-Use a configurable AI provider.
-
-Do not expose API keys.
-
-If the API key is unavailable, implement the integration structure and display a clear configuration requirement.
-
-Implement a soft daily tailoring limit of 20 requests per user.
-
----
-
-# 8. Application Tracker
-
-Create:
-
-`app/dashboard/applications/page.tsx`
-
-Allow users to manually add applications.
-
-Fields:
-
-- Company.
-- Job title.
-- Job URL.
-- Location.
-- Job description.
-- Resume used.
-- Application date.
-- Notes.
-
-## Status Management
-
-Use three states:
-
-| Status | Meaning |
+| Status | Access |
 |---|---|
-| No reply | Waiting for a response |
-| Rejected | Company declined |
-| Hired | User got the job |
+| Active | Access according to plan |
+| Pending | No paid access |
+| On hold | Apply billing recovery policy |
+| Cancelled but paid period remains | Access until period ends |
+| Expired | No paid access |
+| No subscription | Redirect to pricing |
 
-Default status: No reply.
+Protect:
 
-Allow users to change statuses with a simple dropdown.
+- `/dashboard`
+- `/dashboard/resumes`
+- `/dashboard/applications`
+- `/dashboard/outreach`
+- `/dashboard/follow-ups`
+- `/dashboard/profile`
+- `/dashboard/subscription`
 
-## Tracker Interface
+Keep these accessible:
 
-Include:
+- `/`
+- `/pricing`
+- `/login`
+- `/signup`
+- `/auth/callback`
+- `/payment/success`
+- `/payment/cancel`
+- `/privacy`
+- `/terms`
 
-- Search.
-- Status filters.
-- Date filters.
-- Company filtering.
-- Application cards or table.
-- Edit application.
-- Delete application.
-- Application details.
+Preserve the existing Supabase proxy and authentication patterns.
 
-## Statistics
+Implement subscription checks on the server.
 
-Calculate:
+Do not rely solely on client-side route guards.
 
-- Applications sent.
-- Pending applications.
-- Rejections.
-- Hires.
-- Rejection rate.
-- Hire rate.
+Prevent redirect loops.
 
-Use actual Supabase records.
+Allow users without subscriptions to access pricing and payment pages.
 
-Do not generate artificial statistics.
+## 10. PLAN LIMIT ENFORCEMENT
 
-For calculations, define the denominator clearly and handle zero applications safely.
+Create one central plan configuration.
 
----
+```typescript
+export const PLAN_LIMITS = {
+  lite: {
+    applicationsPerDay: 5,
+    emailsPerDay: 5,
+  },
+  basic: {
+    applicationsPerDay: 10,
+    emailsPerDay: 15,
+  },
+  pro: {
+    applicationsPerDay: 20,
+    emailsPerDay: 20,
+  },
+} as const
+```
 
-# 9. Cold Outreach — Initial Interface
+Use this configuration throughout the application.
 
-Create:
+Enforce limits on the server.
 
-`app/dashboard/outreach/page.tsx`
+Prevent users from bypassing limits through direct API calls or concurrent requests.
 
-For this phase, build the frontend and database structure.
+Only count successfully completed actions.
 
-Features:
+Use atomic database operations where needed.
 
-- Add recipients manually.
-- Upload a CSV recipient list.
-- Create email templates.
-- Preview personalized emails.
-- Manage do-not-contact recipients.
-- View sent email history.
-- Display remaining weekly/daily email limits.
+Do not allow client-side plan changes to affect entitlements.
 
-Recipient fields:
+## 11. SUBSCRIPTION MANAGEMENT
 
-- Name.
-- Email.
-- Company.
-- Job title.
-- LinkedIn URL.
-- Notes.
-
-Do not connect Gmail or send real emails yet.
-
-Display a Coming Soon label for the actual sending integration.
-
-Do not build a founder database.
-
----
-
-# 10. Follow-up Management
-
-Create:
-
-`app/dashboard/follow-ups/page.tsx`
-
-For this phase:
-
-- Display applications marked No reply.
-- Display follow-up due dates.
-- Allow users to create manual reminders.
-- Allow users to mark reminders completed.
-- Stop showing follow-ups for Rejected or Hired applications.
-
-Do not automatically send follow-up emails yet.
-
-Future automatic follow-ups must require confirmation before each send.
-
----
-
-# 11. Subscription Management
-
-Create:
+Update:
 
 `app/dashboard/subscription/page.tsx`
 
 Display:
 
+- Current subscription.
 - Current plan.
-- Plan features.
-- Daily application limit.
-- Email limit.
-- AI tailoring availability.
-- Upgrade options.
+- Billing interval.
+- Current price.
+- Subscription status.
+- Current billing period.
+- Next renewal date.
+- Cancellation information.
+- Payment history.
 
-Plans:
+Provide:
 
-Free — $0/month.
+- Change Plan.
+- Manage Billing.
+- Cancel Subscription.
 
-Basic — $9/month.
+Use Dodo's official Customer Portal.
 
-Pro — $19/month.
+Create portal sessions server-side after verifying the authenticated user's customer ID.
 
-Do not integrate payment processing in this phase.
+Do not accept arbitrary Dodo customer IDs from the client.
 
-Create the structure needed for future Merchant of Record integration.
+For plan changes, use officially supported Dodo subscription update methods.
 
-Important:
+Explain the effective date and any applicable price changes before confirmation.
 
-Subscription restrictions must be enforced on the server and in database-backed operations, not merely hidden in the UI.
+Do not invent proration calculations.
 
-Do not allow users to upgrade by modifying browser state or sending a custom plan value.
+Update application entitlements only after verified subscription changes.
 
----
+## 12. PAYMENT SUCCESS AND CANCEL PAGES
 
-# 12. Usage Limit Enforcement
+Success page:
 
-Implement a reliable usage tracking system.
+`/payment/success`
 
-Requirements:
+Display:
 
-- Daily application limits.
-- Daily email limits where applicable.
-- Weekly email limits for Free.
-- Daily AI tailoring soft limit.
-- Server-side enforcement.
-- Correct timezone handling.
-- Clear limit-exceeded messages.
+"Your payment is being confirmed."
 
-Limits:
+The page must check the application's subscription status using a secure server-side endpoint.
 
-| Plan | Applications/day | Emails |
-|---|---:|---:|
-| Free | 3 | 5/week |
-| Basic | 10 | 15/day |
-| Pro | 20 | 20/day |
+Do not activate subscriptions from the success page.
 
-For the initial phase, application records and outreach drafts can be created without pretending that an actual application or email was sent.
+When the webhook confirms the subscription, show:
 
-Only count completed actions as sent.
+"Welcome to Octo.tech!"
 
-Use atomic or transaction-safe operations for enforcing limits to avoid concurrent requests exceeding plan limits.
+Provide a button to access the dashboard.
 
----
+Cancel page:
 
-# 13. Additional UI Requirements
+`/payment/cancel`
 
-Every dashboard page must include:
+Display:
 
-- Consistent header.
-- Consistent sidebar.
-- Loading states.
-- Error states.
-- Empty states.
-- Responsive layouts.
-- Accessible forms.
-- Toast notifications.
-- Confirmation dialogs for destructive actions.
+"Checkout was cancelled."
 
-Use shadcn/ui components wherever appropriate.
+Allow the user to return to pricing.
 
-Use Lucide icons.
+Do not create a subscription when checkout is cancelled.
 
-Do not create buttons that do nothing.
+## 13. TESTING
 
-Do not display fake progress bars or fake analytics.
+Use Dodo TEST MODE.
 
----
+Test all six products.
 
-# 14. Development Order
+### Lite
 
-Implement the following sequence.
+- Weekly: $2.
+- Monthly: $5.
+- 5 applications/day.
+- 5 emails/day.
 
-**Phase A: Dashboard Foundation**
-- Dashboard layout.
-- Sidebar.
-- Header.
-- Authentication integration.
-- Welcome section.
-- Statistics.
-- Empty states.
+### Basic
 
-**Phase B: Database**
-- Supabase migrations.
-- Tables.
-- RLS policies.
-- Profile trigger.
-- Database types.
+- Weekly: $4.
+- Monthly: $9.
+- 10 applications/day.
+- 15 emails/day.
 
-**Phase C: User Profile**
-- Profile forms.
-- Save functionality.
-- Data retrieval.
+### Pro
 
-**Phase D: Resume Builder**
-- Resume editor.
-- Templates.
-- Live preview.
-- Supabase persistence.
-- PDF export.
+- Weekly: $7.
+- Monthly: $19.
+- 20 applications/day.
+- 20 emails/day.
 
-**Phase E: AI Resume Tailoring**
-- Job description input.
-- AI integration.
-- Resume versioning.
-- Paid plan enforcement.
+Test:
 
-**Phase F: Application Tracker**
-- Create applications.
-- Update statuses.
-- Filters.
-- Statistics.
+1. Successful checkout.
+2. Failed payment.
+3. Invalid webhook signature.
+4. Duplicate webhook.
+5. Subscription activation.
+6. Subscription renewal.
+7. Subscription cancellation.
+8. Subscription expiration.
+9. Plan upgrade.
+10. Plan downgrade.
+11. Weekly-to-monthly change.
+12. Monthly-to-weekly change.
+13. Unpaid dashboard access.
+14. Server-side usage enforcement.
+15. Customer Portal.
 
-**Phase G: Outreach and Follow-ups**
-- Recipient management.
-- CSV import.
-- Email templates.
-- Follow-up reminders.
+Test both localhost and the Vercel Preview deployment.
 
-**Phase H: Subscription Interface**
-- Plan display.
-- Usage information.
-- Upgrade interface.
+Use actual signed webhook deliveries, not just mocked success responses.
 
-Complete and test each phase before moving forward.
+Do not process real customer payments during testing.
 
----
+## 14. VERCEL DEPLOYMENT
 
-# 15. Testing Requirements
+The project is already deployed at:
 
-Test the following:
+https://octo-pi-nine.vercel.app/
 
-Authentication:
-- Existing users can log in.
-- Logged-out users cannot access protected dashboard pages.
-- Users can log out.
-- User sessions persist correctly.
+Preserve the existing Vercel project and deployment configuration.
 
-Profile:
-- Users can create profiles.
-- Users can update profiles.
-- Users cannot access other users' profiles.
+Development workflow:
 
-Resume Builder:
-- Users can create resumes.
-- Users can edit resumes.
-- Users can delete resumes.
-- Resume data persists after refreshing.
-- PDF export works.
-- Multiple templates render correctly.
+1. Inspect the existing Git repository.
+2. Create a separate feature branch if appropriate.
+3. Implement Dodo integration.
+4. Run TypeScript checks.
+5. Run production build.
+6. Test locally.
+7. Push changes to the connected repository.
+8. Verify the Vercel Preview deployment.
+9. Configure Dodo test webhooks to reach the Preview deployment.
+10. Test the complete checkout and webhook lifecycle.
+11. Fix any deployment-specific issues.
 
-AI:
-- Free users cannot access paid tailoring.
-- AI output preserves factual information.
-- Tailored versions are saved.
+Do not overwrite production with untested code.
 
-Tracker:
-- Applications can be created.
-- Statuses can be updated.
-- Statistics match database records.
-- Users cannot access another user's applications.
+Do not modify DNS or custom domain configuration.
 
-Security:
-- RLS policies work.
-- API keys are protected.
-- Server-side plan verification works.
-- Usage limits cannot be bypassed through client-side requests.
+Do not expose production secrets in logs or client-side code.
 
-Finally:
+Only deploy the verified implementation to production when approved.
+
+## 15. PRODUCTION CHECKLIST
+
+Before declaring completion:
+
+- Existing Supabase authentication works.
+- Existing user records are preserved.
+- Existing resumes are preserved.
+- Existing applications are preserved.
+- All six Dodo products are correctly mapped.
+- Weekly and monthly checkout works.
+- Webhook signatures are verified.
+- Duplicate events are handled.
+- Subscriptions persist in Supabase.
+- Access is granted only after verified activation.
+- Usage limits are enforced server-side.
+- Cancellation works correctly.
+- Renewal works correctly.
+- Payment history is accurate.
+- Customer Portal works.
+- No secrets are exposed.
+- No old Free-plan references remain.
+- Vercel production build succeeds.
 
 Run:
 
@@ -900,42 +635,50 @@ npx tsc --noEmit
 npm run build
 ```
 
-Fix all errors before declaring completion.
+Fix relevant errors before declaring completion.
 
----
+## 16. FINAL REPORT
 
-# 16. Final Instructions
-
-Work directly in the existing Octo.tech repository.
-
-Do not recreate the landing page.
-
-Do not break existing Supabase authentication.
-
-Do not replace working code unnecessarily.
-
-Do not implement all features in one enormous component.
-
-Do not use mock data where real database data is expected.
-
-Do not pretend AI, Gmail, payments or job applications work without actual integrations.
-
-If credentials or external services are unavailable, clearly identify the missing configuration and continue with the parts that can genuinely be implemented.
-
-At the end, provide:
+Provide:
 
 1. Files created.
 2. Files modified.
-3. Database migrations created.
-4. Dependencies installed.
-5. Features completed.
-6. Features requiring API credentials.
-7. Security measures implemented.
-8. Tests performed.
-9. Remaining issues.
+3. Existing functionality preserved.
+4. Supabase migrations created.
+5. Dodo dependencies installed.
+6. Environment variables configured.
+7. Dodo products configured.
+8. Webhook endpoint configured.
+9. Test results for each plan.
+10. Test results for each billing interval.
+11. Subscription lifecycle test results.
+12. Security measures.
+13. Vercel Preview deployment URL.
+14. Production deployment status.
+15. Remaining manual configuration.
 
-**Final objective:**
+Clearly distinguish implemented, tested, and pending functionality.
 
-Turn Octo.tech from a landing page into a functional SaaS application with a real user dashboard, persistent Supabase data, a professional resume builder, PDF export, an application tracker and a foundation for AI-powered job-search automation.
+Do not claim successful payments when only test mode was used.
 
-Build systematically. Prioritize functionality, security and quality over the number of features.
+Do not switch to live payments without my approval.
+
+# FINAL OBJECTIVE
+
+Integrate Dodo Payments into the existing hosted Octo.tech application without rebuilding it.
+
+The final product must have:
+
+- Three paid plans.
+- Weekly and monthly billing.
+- Six recurring Dodo products.
+- Secure hosted checkout.
+- Verified webhooks.
+- Subscription lifecycle management.
+- Customer Portal.
+- Supabase subscription persistence.
+- Server-side plan enforcement.
+- Proper cancellation and renewal handling.
+- Working Vercel deployment.
+
+**The existing application is the foundation. Extend it, secure it, test it and deploy it carefully. Do not start over.**

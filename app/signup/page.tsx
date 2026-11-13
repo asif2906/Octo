@@ -5,14 +5,14 @@ import { SignupForm } from "@/components/auth/signup-form"
 
 export const metadata: Metadata = {
   title: "Sign up — Octo.tech",
-  description: "Create your free Octo.tech account.",
+  description: "Create your Octo.tech account.",
 }
 
 export default function SignupPage() {
   return (
     <AuthShell
       title="Create your account"
-      description="Start free with Octo.tech. Build your profile once and reuse it everywhere."
+      description="Get started with Octo.tech. Build your profile once and reuse it everywhere."
       footer={
         <p className="text-center text-sm text-muted-foreground">
           Already have an account?{" "}

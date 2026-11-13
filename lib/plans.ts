@@ -1,95 +1,121 @@
-import type { SubscriptionPlan } from "@/types/database"
+import type { BillingInterval, SubscriptionPlan } from "@/types/database"
+
+export const PLAN_LIMITS = {
+  lite: {
+    applicationsPerDay: 5,
+    emailsPerDay: 5,
+  },
+  basic: {
+    applicationsPerDay: 10,
+    emailsPerDay: 15,
+  },
+  pro: {
+    applicationsPerDay: 20,
+    emailsPerDay: 20,
+  },
+} as const
+
+export interface PlanPricing {
+  weekly: number
+  monthly: number
+}
 
 export interface PlanDefinition {
   id: SubscriptionPlan
   name: string
-  monthlyPriceUsd: number
+  pricing: PlanPricing
   applicationsPerDay: number
-  coldEmailsLimit: number
-  coldEmailsPeriod: "week" | "day"
+  coldEmailsPerDay: number
   aiTailoringEnabled: boolean
   aiTailoringDailyLimit: number
-  followUpsTier: "None" | "Basic" | "Advanced"
-  trackerTier: "Basic" | "Full" | "Full + Analytics"
-  founderDatabase: "No" | "Planned"
+  followUpsTier: "Basic" | "Advanced"
+  analyticsTier: "Basic" | "Full" | "Advanced"
   features: string[]
+  recommended?: boolean
 }
 
 export const PLAN_DEFINITIONS: Record<SubscriptionPlan, PlanDefinition> = {
-  free: {
-    id: "free",
-    name: "Free",
-    monthlyPriceUsd: 0,
-    applicationsPerDay: 3,
-    coldEmailsLimit: 5,
-    coldEmailsPeriod: "week",
-    aiTailoringEnabled: false,
-    aiTailoringDailyLimit: 0,
-    followUpsTier: "None",
-    trackerTier: "Basic",
-    founderDatabase: "No",
+  lite: {
+    id: "lite",
+    name: "Lite",
+    pricing: {
+      weekly: 2,
+      monthly: 5,
+    },
+    applicationsPerDay: 5,
+    coldEmailsPerDay: 5,
+    aiTailoringEnabled: true,
+    aiTailoringDailyLimit: 20,
+    followUpsTier: "Basic",
+    analyticsTier: "Basic",
     features: [
-      "3 assisted applications per day",
-      "5 cold emails per week",
-      "Personal recipient list",
-      "Basic resume builder & PDF export",
-      "Basic application tracker",
-      "Manual status updates",
+      "5 auto-apply / day",
+      "5 cold emails / day",
+      "Full ATS resume builder & genuine PDF export",
+      "AI resume tailoring (20 requests/day soft limit)",
+      "Application tracker",
+      "Basic follow-up reminders",
+      "Basic analytics",
     ],
   },
   basic: {
     id: "basic",
     name: "Basic",
-    monthlyPriceUsd: 9,
+    pricing: {
+      weekly: 4,
+      monthly: 9,
+    },
     applicationsPerDay: 10,
-    coldEmailsLimit: 15,
-    coldEmailsPeriod: "day",
+    coldEmailsPerDay: 15,
     aiTailoringEnabled: true,
     aiTailoringDailyLimit: 20,
-    followUpsTier: "Basic",
-    trackerTier: "Full",
-    founderDatabase: "No",
+    followUpsTier: "Advanced",
+    analyticsTier: "Full",
+    recommended: true,
     features: [
-      "10 assisted applications per day",
-      "15 cold emails per day",
-      "Personal recipient list",
+      "10 auto-apply / day",
+      "15 cold emails / day",
+      "Full ATS resume builder & genuine PDF export",
       "AI resume tailoring (20 requests/day soft limit)",
-      "Basic follow-up reminders",
-      "Full application tracker",
+      "Application tracker",
+      "Advanced follow-up automation",
+      "Full analytics suite",
     ],
   },
   pro: {
     id: "pro",
     name: "Pro",
-    monthlyPriceUsd: 19,
+    pricing: {
+      weekly: 7,
+      monthly: 19,
+    },
     applicationsPerDay: 20,
-    coldEmailsLimit: 20,
-    coldEmailsPeriod: "day",
+    coldEmailsPerDay: 20,
     aiTailoringEnabled: true,
     aiTailoringDailyLimit: 20,
     followUpsTier: "Advanced",
-    trackerTier: "Full + Analytics",
-    founderDatabase: "Planned",
+    analyticsTier: "Advanced",
     features: [
-      "20 assisted applications per day",
-      "20 cold emails per day",
-      "Personal recipient list",
-      "Founder and CEO database (planned)",
+      "20 auto-apply / day",
+      "20 cold emails / day",
+      "Full ATS resume builder & genuine PDF export",
       "AI resume tailoring (20 requests/day soft limit)",
-      "Advanced follow-ups",
-      "Full tracker and analytics",
+      "Application tracker",
+      "Advanced follow-up automation",
+      "Advanced search analytics",
     ],
   },
 }
 
 export interface UsageSummary {
   plan: SubscriptionPlan
+  hasActiveSubscription: boolean
   timezone: string
   applicationsUsedToday: number
   applicationsDailyLimit: number
   coldEmailsUsedInPeriod: number
   coldEmailsLimit: number
-  coldEmailsPeriod: "week" | "day"
+  coldEmailsPeriod: "day"
   aiTailoringUsedToday: number
   aiTailoringDailyLimit: number
   aiTailoringEnabled: boolean
@@ -113,17 +139,35 @@ export function getDateKeyInTimezone(date: Date, timeZone: string): string {
   }
 }
 
-/**
- * Returns the Monday-start ISO week identifier (YYYY-MM-DD of Monday) in the given timezone,
- * matching PostgreSQL date_trunc('week', ts at time zone tz).
- */
-export function getWeekStartKeyInTimezone(date: Date, timeZone: string): string {
-  const dateKey = getDateKeyInTimezone(date, timeZone)
-  const [y, m, d] = dateKey.split("-").map(Number)
-  const utcDate = new Date(Date.UTC(y, m - 1, d))
-  const dayOfWeek = utcDate.getUTCDay() // 0 = Sun, 1 = Mon, ...
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-  utcDate.setUTCDate(utcDate.getUTCDate() + diffToMonday)
-  return utcDate.toISOString().slice(0, 10)
+export function getDodoProductId(
+  plan: SubscriptionPlan,
+  interval: BillingInterval
+): string | null {
+  const envKey = `DODO_${plan.toUpperCase()}_${interval.toUpperCase()}_PRODUCT_ID`
+  const val = process.env[envKey]
+  return val && val.trim() ? val.trim() : null
 }
 
+export function getPlanFromProductId(
+  productId: string
+): { plan: SubscriptionPlan; interval: BillingInterval } | null {
+  const mapping: Array<{
+    envKey: string
+    plan: SubscriptionPlan
+    interval: BillingInterval
+  }> = [
+    { envKey: "DODO_LITE_WEEKLY_PRODUCT_ID", plan: "lite", interval: "weekly" },
+    { envKey: "DODO_LITE_MONTHLY_PRODUCT_ID", plan: "lite", interval: "monthly" },
+    { envKey: "DODO_BASIC_WEEKLY_PRODUCT_ID", plan: "basic", interval: "weekly" },
+    { envKey: "DODO_BASIC_MONTHLY_PRODUCT_ID", plan: "basic", interval: "monthly" },
+    { envKey: "DODO_PRO_WEEKLY_PRODUCT_ID", plan: "pro", interval: "weekly" },
+    { envKey: "DODO_PRO_MONTHLY_PRODUCT_ID", plan: "pro", interval: "monthly" },
+  ]
+
+  for (const item of mapping) {
+    if (process.env[item.envKey] && process.env[item.envKey]?.trim() === productId.trim()) {
+      return { plan: item.plan, interval: item.interval }
+    }
+  }
+  return null
+}

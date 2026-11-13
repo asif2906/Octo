@@ -18,15 +18,15 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     value: "is-octo-free",
-    question: "Is Octo.tech free?",
+    question: "What subscription plans does Octo.tech offer?",
     answer:
-      "Yes. Octo.tech includes a Free plan ($0/month) with a basic resume builder, basic application tracker, manual status updates, and starter daily/weekly outreach limits. Paid Basic ($9/month) and Pro ($19/month) plans will unlock higher limits and AI tailoring once those modules launch.",
+      "Octo.tech offers three paid tiers: Lite ($2/week or $5/month), Basic ($4/week or $9/month), and Pro ($7/week or $19/month). There is no free tier. All plans include full ATS resume building, genuine PDF export, and verified outreach tracking with predictable daily quotas.",
   },
   {
     value: "ai-resume-tailoring",
     question: "How does AI resume tailoring work?",
     answer:
-      "When launched on paid plans, you will be able to paste a job description and generate a tailored resume version from your saved profile—highlighting relevant skills, projects, and experience without inventing facts.",
+      "With your active subscription, you can paste any job description and generate an ATS-tailored resume version from your saved profile—highlighting relevant skills, projects, and experience without inventing facts.",
   },
   {
     value: "auto-apply",
@@ -44,7 +44,7 @@ const FAQ_ITEMS: FaqItem[] = [
     value: "cancel-subscription",
     question: "Can I cancel my subscription?",
     answer:
-      "Yes. Once paid billing is enabled, monthly subscriptions can be cancelled at any time with no lock-in or credit expirations.",
+      "Yes. Subscriptions can be cancelled at any time through the Dodo Payments customer portal with no lock-in or penalties. You retain full access to your plan until the end of your prepaid billing period.",
   },
   {
     value: "gmail-inbox-privacy",

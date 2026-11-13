@@ -77,7 +77,7 @@ export function FollowUpsClient({
     React.useState<FollowUpReminderRow | null>(null)
   const [deleting, setDeleting] = React.useState(false)
 
-  const followUpsUnlocked = usage.plan === "basic" || usage.plan === "pro"
+  const followUpsUnlocked = true
 
   async function handleCreateReminder(e: React.FormEvent) {
     e.preventDefault()
@@ -211,12 +211,10 @@ export function FollowUpsClient({
             Track follow-up timing for unanswered applications. Follow-ups automatically stop when marked Rejected or Hired.
           </p>
         </div>
-        <Badge variant={followUpsUnlocked ? "default" : "outline"}>
-          {usage.plan === "pro"
+        <Badge variant="default" className="capitalize">
+          {usage.plan === "pro" || usage.plan === "basic"
             ? "Advanced Follow-ups"
-            : usage.plan === "basic"
-              ? "Basic Follow-ups"
-              : "Basic or Pro Feature"}
+            : "Basic Follow-ups"}
         </Badge>
       </div>
 

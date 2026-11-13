@@ -1,11 +1,26 @@
 import { Suspense } from "react"
 import { getDashboardContext } from "@/lib/dashboard/data"
 import { SubscriptionView } from "@/components/subscription/subscription-view"
+import { createClient } from "@/lib/supabase/server"
+import type { PaymentHistoryRow } from "@/types/database"
 
 async function SubscriptionPageContent() {
   const ctx = await getDashboardContext()
+  const supabase = await createClient()
+
+  const { data: payments } = await supabase
+    .from("payment_history")
+    .select("*")
+    .eq("user_id", ctx.user.id)
+    .order("created_at", { ascending: false })
+    .limit(20)
+
   return (
-    <SubscriptionView subscription={ctx.subscription} usage={ctx.usage} />
+    <SubscriptionView
+      subscription={ctx.subscription}
+      usage={ctx.usage}
+      paymentHistory={(payments as PaymentHistoryRow[] | null) ?? []}
+    />
   )
 }
 
@@ -28,4 +43,3 @@ export default function SubscriptionPage() {
     </Suspense>
   )
 }
-

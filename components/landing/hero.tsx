@@ -46,7 +46,7 @@ export function Hero() {
                 "h-11 px-6 text-sm font-medium shadow-xs"
               )}
             >
-              Get Started Free
+              Get Started
               <ArrowRight className="size-4" />
             </Link>
             <a
@@ -71,7 +71,7 @@ export function Hero() {
             </span>
             <span className="inline-flex items-center gap-1.5">
               <CheckCircle2 className="size-3.5 text-foreground/70" />
-              Free plan included
+              Weekly & monthly plans
             </span>
           </div>
         </div>

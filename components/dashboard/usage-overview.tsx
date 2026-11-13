@@ -53,8 +53,8 @@ export function UsageOverview({ usage }: { usage: UsageSummary }) {
         <div>
           <div className="flex items-center gap-2">
             <CardTitle>Plan & Usage Limits</CardTitle>
-            <Badge variant={usage.plan === "free" ? "outline" : "default"}>
-              {planDef.name} (${planDef.monthlyPriceUsd}/mo)
+            <Badge variant="default" className="capitalize">
+              {planDef.name} Plan
             </Badge>
           </div>
           <CardDescription>
@@ -83,7 +83,7 @@ export function UsageOverview({ usage }: { usage: UsageSummary }) {
           label="Cold Outreach"
           used={usage.coldEmailsUsedInPeriod}
           limit={usage.coldEmailsLimit}
-          suffix={usage.coldEmailsPeriod === "week" ? "this week" : "today"}
+          suffix="today"
         />
         <UsageMeter
           label="AI Resume Tailoring"
@@ -93,7 +93,7 @@ export function UsageOverview({ usage }: { usage: UsageSummary }) {
           disabledNote={
             usage.aiTailoringEnabled
               ? undefined
-              : "Locked on Free plan (Basic or Pro)"
+              : "Active subscription required"
           }
         />
       </CardContent>

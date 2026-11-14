@@ -10,6 +10,15 @@ import {
   Plus,
   Search,
   Trash2,
+  LayoutGrid,
+  List,
+  Calendar,
+  Building2,
+  MapPin,
+  Clock,
+  Sparkles,
+  ArrowRight,
+  Filter,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { logUserActivity } from "@/lib/dashboard/activity"
@@ -42,10 +51,13 @@ interface ApplicationsClientProps {
   resumes: Pick<ResumeRow, "id" | "title" | "is_primary">[]
 }
 
-const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = [
-  { value: "no_reply", label: "No Reply" },
-  { value: "rejected", label: "Rejected" },
-  { value: "hired", label: "Hired" },
+const KANBAN_STAGES: Array<{ id: ApplicationStatus; label: string; color: string; border: string }> = [
+  { id: "draft", label: "Draft", color: "text-zinc-300 bg-zinc-500/10", border: "border-zinc-500/30" },
+  { id: "applied", label: "Applied", color: "text-blue-300 bg-blue-500/10", border: "border-blue-500/30" },
+  { id: "assessment", label: "Assessment", color: "text-amber-300 bg-amber-500/10", border: "border-amber-500/30" },
+  { id: "interview", label: "Interview", color: "text-purple-300 bg-purple-500/10", border: "border-purple-500/30" },
+  { id: "offer", label: "Offer", color: "text-emerald-300 bg-emerald-500/10", border: "border-emerald-500/30" },
+  { id: "rejected", label: "Rejected", color: "text-rose-300 bg-rose-500/10", border: "border-rose-500/30" },
 ]
 
 export function ApplicationsClient({
@@ -58,29 +70,22 @@ export function ApplicationsClient({
   const supabase = React.useMemo(() => createClient(), [])
   const { toast } = useToast()
 
-  const [applications, setApplications] =
-    React.useState<ApplicationRow[]>(initialApplications)
+  const [applications, setApplications] = React.useState<ApplicationRow[]>(initialApplications)
+  const [viewMode, setViewMode] = React.useState<"board" | "table">("board")
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState<
-    "all" | ApplicationStatus
-  >("all")
-  const [dateFrom, setDateFrom] = React.useState("")
-  const [dateTo, setDateTo] = React.useState("")
+  const [statusFilter, setStatusFilter] = React.useState<string>("all")
 
   const [formOpen, setFormOpen] = React.useState(false)
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
-  const [deleteTarget, setDeleteTarget] =
-    React.useState<ApplicationRow | null>(null)
-  const [deleting, setDeleting] = React.useState(false)
+  const [deleteTarget, setDeleteTarget] = React.useState<ApplicationRow | null>(null)
 
   const todayDefault = React.useMemo(
     () => getDateKeyInTimezone(new Date(), usage.timezone),
     [usage.timezone]
   )
 
-  const primaryResumeId =
-    resumes.find((r) => r.is_primary)?.id ?? resumes[0]?.id ?? ""
+  const primaryResumeId = resumes.find((r) => r.is_primary)?.id ?? resumes[0]?.id ?? ""
 
   const [form, setForm] = React.useState({
     company: "",
@@ -90,9 +95,52 @@ export function ApplicationsClient({
     job_description: "",
     resume_id: primaryResumeId,
     application_date: todayDefault,
-    status: "no_reply" as ApplicationStatus,
+    status: "applied" as ApplicationStatus,
     notes: "",
   })
+
+  // Filtered applications
+  const filtered = React.useMemo(() => {
+    return applications.filter((app) => {
+      if (statusFilter !== "all") {
+        if (statusFilter === "applied" && (app.status === "applied" || app.status === "no_reply")) {
+          // match
+        } else if (statusFilter === "offer" && (app.status === "offer" || app.status === "hired")) {
+          // match
+        } else if (app.status !== statusFilter) {
+          return false
+        }
+      }
+      if (!searchQuery.trim()) return true
+      const q = searchQuery.toLowerCase()
+      return (
+        app.company.toLowerCase().includes(q) ||
+        app.job_title.toLowerCase().includes(q) ||
+        (app.location && app.location.toLowerCase().includes(q))
+      )
+    })
+  }, [applications, searchQuery, statusFilter])
+
+  // Move stage directly (Board or card action)
+  async function handleMoveStage(appId: string, newStage: ApplicationStatus) {
+    const prevApps = [...applications]
+    setApplications((prev) =>
+      prev.map((a) => (a.id === appId ? { ...a, status: newStage, updated_at: new Date().toISOString() } : a))
+    )
+
+    const { error } = await supabase
+      .from("applications")
+      .update({ status: newStage, updated_at: new Date().toISOString() })
+      .eq("id", appId)
+      .eq("user_id", userId)
+
+    if (error) {
+      setApplications(prevApps)
+      toast({ title: "Failed to update status", description: error.message, variant: "error" })
+    } else {
+      toast({ title: `Moved to ${newStage.toUpperCase()}`, variant: "info" })
+    }
+  }
 
   function openNewForm() {
     setEditingId(null)
@@ -104,7 +152,7 @@ export function ApplicationsClient({
       job_description: "",
       resume_id: primaryResumeId,
       application_date: todayDefault,
-      status: "no_reply",
+      status: "draft",
       notes: "",
     })
     setFormOpen(true)
@@ -129,10 +177,7 @@ export function ApplicationsClient({
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!form.company.trim() || !form.job_title.trim()) {
-      toast({
-        title: "Company and job title are required",
-        variant: "error",
-      })
+      toast({ title: "Company and job title are required", variant: "error" })
       return
     }
 
@@ -153,536 +198,399 @@ export function ApplicationsClient({
     }
 
     const res = editingId
-      ? await supabase
-          .from("applications")
-          .update(payload)
-          .eq("id", editingId)
-          .eq("user_id", userId)
-          .select("*")
-          .single()
+      ? await supabase.from("applications").update(payload).eq("id", editingId).eq("user_id", userId).select("*").single()
       : await supabase.from("applications").insert(payload).select("*").single()
 
     setSaving(false)
     if (res.error || !res.data) {
-      toast({
-        title: editingId
-          ? "Could not update application"
-          : "Application limit or save error",
-        description: res.error?.message ?? "Please try again.",
-        variant: "error",
-      })
+      toast({ title: "Save error", description: res.error?.message, variant: "error" })
       return
     }
 
     const saved = res.data as ApplicationRow
     setApplications((prev) =>
-      editingId
-        ? prev.map((item) => (item.id === saved.id ? saved : item))
-        : [saved, ...prev]
+      editingId ? prev.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...prev]
     )
 
-    if (saved.status === "rejected" || saved.status === "hired") {
-      await supabase
-        .from("follow_up_reminders")
-        .update({ completed: true, completed_at: now, updated_at: now })
-        .eq("application_id", saved.id)
-        .eq("user_id", userId)
-        .eq("completed", false)
-    }
-
-    await logUserActivity(supabase, {
-      userId,
-      activityType: editingId ? "application_updated" : "application_created",
-      description: `${editingId ? "Updated" : "Logged"} application for ${saved.job_title} at ${saved.company}`,
-      metadata: { application_id: saved.id, status: saved.status },
-    })
-
-    toast({
-      title: editingId ? "Application updated" : "Application logged",
-      variant: "success",
-    })
     setFormOpen(false)
-    setEditingId(null)
-    router.refresh()
+    toast({ title: editingId ? "Application updated" : "Application logged", variant: "success" })
   }
 
-  async function handleInlineStatusChange(
-    app: ApplicationRow,
-    nextStatus: ApplicationStatus
-  ) {
-    const now = new Date().toISOString()
-    const { error } = await supabase
-      .from("applications")
-      .update({ status: nextStatus, updated_at: now })
-      .eq("id", app.id)
-      .eq("user_id", userId)
-
-    if (error) {
-      toast({
-        title: "Could not update status",
-        description: error.message,
-        variant: "error",
-      })
-      return
+  async function handleDelete(appId: string) {
+    const { error } = await supabase.from("applications").delete().eq("id", appId).eq("user_id", userId)
+    if (!error) {
+      setApplications((prev) => prev.filter((a) => a.id !== appId))
+      setDeleteTarget(null)
+      toast({ title: "Application deleted", variant: "info" })
     }
-
-    if (nextStatus === "rejected" || nextStatus === "hired") {
-      await supabase
-        .from("follow_up_reminders")
-        .update({ completed: true, completed_at: now, updated_at: now })
-        .eq("application_id", app.id)
-        .eq("user_id", userId)
-        .eq("completed", false)
-    }
-
-    setApplications((prev) =>
-      prev.map((item) =>
-        item.id === app.id ? { ...item, status: nextStatus } : item
-      )
-    )
-    await logUserActivity(supabase, {
-      userId,
-      activityType: "application_status_changed",
-      description: `Marked ${app.job_title} at ${app.company} as ${nextStatus.replace("_", " ")}`,
-    })
-    toast({
-      title: "Status updated",
-      description:
-        nextStatus === "no_reply"
-          ? undefined
-          : "Pending follow-ups for this application have been stopped.",
-      variant: "success",
-    })
-    router.refresh()
   }
-
-  async function handleConfirmDelete() {
-    if (!deleteTarget) return
-    setDeleting(true)
-    const { error } = await supabase
-      .from("applications")
-      .delete()
-      .eq("id", deleteTarget.id)
-      .eq("user_id", userId)
-    setDeleting(false)
-
-    if (error) {
-      toast({
-        title: "Could not delete application",
-        description: error.message,
-        variant: "error",
-      })
-      return
-    }
-
-    setApplications((prev) =>
-      prev.filter((item) => item.id !== deleteTarget.id)
-    )
-    toast({ title: "Application removed", variant: "success" })
-    setDeleteTarget(null)
-    router.refresh()
-  }
-
-  const filtered = applications.filter((app) => {
-    if (statusFilter !== "all" && app.status !== statusFilter) return false
-    if (dateFrom && app.application_date < dateFrom) return false
-    if (dateTo && app.application_date > dateTo) return false
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      const matches =
-        app.company.toLowerCase().includes(q) ||
-        app.job_title.toLowerCase().includes(q) ||
-        (app.location ?? "").toLowerCase().includes(q)
-      if (!matches) return false
-    }
-    return true
-  })
-
-  const total = applications.length
-  const pending = applications.filter((a) => a.status === "no_reply").length
-  const rejected = applications.filter((a) => a.status === "rejected").length
-  const hired = applications.filter((a) => a.status === "hired").length
-  const rejectionRate = total > 0 ? Math.round((rejected / total) * 100) : 0
-  const hireRate = total > 0 ? Math.round((hired / total) * 100) : 0
-  const remainingToday = Math.max(
-    0,
-    usage.applicationsDailyLimit - usage.applicationsUsedToday
-  )
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      {/* Top Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Applications
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Applications Tracker
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Track submitted job applications, outcomes, and daily plan limits ({remainingToday} of {usage.applicationsDailyLimit} left today).
+            Manage your opportunities across Kanban stages or review detailed metrics in Table view.
           </p>
         </div>
-        <Button type="button" onClick={openNewForm}>
-          <Plus className="size-4" />
-          Add Application
-        </Button>
+
+        <div className="flex items-center gap-3">
+          {/* View mode toggle */}
+          <div className="inline-flex rounded-lg border border-border/80 bg-muted/40 p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("board")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                viewMode === "board"
+                  ? "bg-background text-foreground font-semibold shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutGrid className="size-3.5" />
+              Board
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                viewMode === "table"
+                  ? "bg-background text-foreground font-semibold shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <List className="size-3.5" />
+              Table
+            </button>
+          </div>
+
+          <Button size="sm" onClick={openNewForm} className="gap-1.5">
+            <Plus className="size-4" />
+            Add Application
+          </Button>
+        </div>
       </div>
 
-      {/* Real Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card size="sm">
-          <CardHeader className="pb-1">
-            <CardDescription>Total Applications</CardDescription>
-            <CardTitle className="text-2xl">{total}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader className="pb-1">
-            <CardDescription>Pending / No Reply</CardDescription>
-            <CardTitle className="text-2xl">{pending}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader className="pb-1">
-            <CardDescription>Rejections ({rejectionRate}%)</CardDescription>
-            <CardTitle className="text-2xl">{rejected}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader className="pb-1">
-            <CardDescription>Hires ({hireRate}%)</CardDescription>
-            <CardTitle className="text-2xl">{hired}</CardTitle>
-          </CardHeader>
-        </Card>
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search company, job title, or location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 text-sm"
+          />
+        </div>
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="sm:w-44 text-xs"
+        >
+          <option value="all">All Stages ({applications.length})</option>
+          <option value="draft">Draft</option>
+          <option value="applied">Applied</option>
+          <option value="assessment">Assessment</option>
+          <option value="interview">Interview</option>
+          <option value="offer">Offer</option>
+          <option value="rejected">Rejected</option>
+        </Select>
       </div>
 
-      {formOpen ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {editingId ? "Edit Application" : "Log New Application"}
-            </CardTitle>
-            <CardDescription>
-              {editingId
-                ? "Update status, notes, or role details."
-                : `Remaining daily quota: ${remainingToday}/${usage.applicationsDailyLimit} on ${usage.plan.toUpperCase()} plan.`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      {/* Add / Edit Form Modal */}
+      {formOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <h3 className="font-semibold text-foreground text-base">
+                {editingId ? "Edit Application" : "New Application"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setFormOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+
             <form onSubmit={handleSave} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="app-company">Company *</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Company *</Label>
                   <Input
-                    id="app-company"
+                    required
                     value={form.company}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, company: e.target.value }))
-                    }
-                    placeholder="Vercel"
-                    required
+                    onChange={(e) => setForm({ ...form, company: e.target.value })}
+                    className="mt-1"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="app-job-title">Job Title *</Label>
+                <div>
+                  <Label className="text-xs">Job Title *</Label>
                   <Input
-                    id="app-job-title"
+                    required
                     value={form.job_title}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, job_title: e.target.value }))
-                    }
-                    placeholder="Staff Frontend Engineer"
-                    required
+                    onChange={(e) => setForm({ ...form, job_title: e.target.value })}
+                    className="mt-1"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="app-url">Job URL</Label>
+                <div>
+                  <Label className="text-xs">Location</Label>
                   <Input
-                    id="app-url"
-                    type="url"
-                    value={form.job_url}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, job_url: e.target.value }))
-                    }
-                    placeholder="https://..."
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="app-location">Location</Label>
-                  <Input
-                    id="app-location"
+                    placeholder="e.g. Remote / SF"
                     value={form.location}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, location: e.target.value }))
-                    }
-                    placeholder="Remote / San Francisco, CA"
+                    onChange={(e) => setForm({ ...form, location: e.target.value })}
+                    className="mt-1"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="app-date">Application Date</Label>
-                  <Input
-                    id="app-date"
-                    type="date"
-                    value={form.application_date}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        application_date: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="app-status">Status</Label>
+                <div>
+                  <Label className="text-xs">Application Stage</Label>
                   <Select
-                    id="app-status"
                     value={form.status}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        status: e.target.value as ApplicationStatus,
-                      }))
-                    }
+                    onChange={(e) => setForm({ ...form, status: e.target.value as ApplicationStatus })}
+                    className="mt-1 text-xs"
                   >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
+                    <option value="draft">Draft</option>
+                    <option value="applied">Applied</option>
+                    <option value="assessment">Assessment</option>
+                    <option value="interview">Interview</option>
+                    <option value="offer">Offer</option>
+                    <option value="rejected">Rejected</option>
                   </Select>
                 </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="app-resume">Resume Used</Label>
-                  <Select
-                    id="app-resume"
-                    value={form.resume_id}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, resume_id: e.target.value }))
-                    }
-                  >
-                    <option value="">None selected</option>
-                    {resumes.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.title}
-                        {r.is_primary ? " (Primary)" : ""}
-                      </option>
-                    ))}
-                  </Select>
+                <div className="sm:col-span-2">
+                  <Label className="text-xs">Job Posting URL</Label>
+                  <Input
+                    type="url"
+                    placeholder="https://..."
+                    value={form.job_url}
+                    onChange={(e) => setForm({ ...form, job_url: e.target.value })}
+                    className="mt-1"
+                  />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="app-notes">Notes</Label>
+              <div>
+                <Label className="text-xs">Job Description (Used for AI tailoring)</Label>
                 <Textarea
-                  id="app-notes"
-                  rows={3}
-                  value={form.notes}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, notes: e.target.value }))
-                  }
-                  placeholder="Recruiter contact, referral details, interview notes..."
+                  rows={4}
+                  value={form.job_description}
+                  onChange={(e) => setForm({ ...form, job_description: e.target.value })}
+                  placeholder="Paste job details or responsibilities..."
+                  className="mt-1 text-xs"
                 />
               </div>
 
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setFormOpen(false)}
-                >
+              <div>
+                <Label className="text-xs">Private Notes</Label>
+                <Textarea
+                  rows={2}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  placeholder="Salary notes, recruiter names, referral contacts..."
+                  className="mt-1 text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving
-                    ? "Saving..."
-                    : editingId
-                      ? "Save Changes"
-                      : "Save Application"}
+                <Button type="submit" size="sm" disabled={saving}>
+                  {saving ? "Saving..." : editingId ? "Update Application" : "Save to Pipeline"}
                 </Button>
               </div>
             </form>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="grid gap-3 pt-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="relative">
-            <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search company or role..."
-              className="pl-8"
-              aria-label="Search applications"
-            />
           </div>
-          <Select
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as "all" | ApplicationStatus)
-            }
-            aria-label="Filter by status"
-          >
-            <option value="all">All Statuses</option>
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </Select>
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            aria-label="Filter from date"
-          />
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            aria-label="Filter to date"
-          />
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
-      {/* Applications List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tracked Applications ({filtered.length})</CardTitle>
-          <CardDescription>
-            Marking an application Rejected or Hired automatically stops open follow-ups.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Briefcase className="size-9 text-muted-foreground/60" />
-              <p className="mt-3 text-sm font-medium text-foreground">
-                {applications.length === 0
-                  ? "No applications tracked yet"
-                  : "No applications match your filters"}
-              </p>
-              {applications.length === 0 ? (
-                <Button size="sm" className="mt-4" onClick={openNewForm}>
-                  Add Your First Application
-                </Button>
-              ) : null}
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {filtered.map((app) => {
-                const linkedResume = resumes.find(
-                  (r) => r.id === app.resume_id
-                )
-                return (
-                  <div
-                    key={app.id}
-                    className="flex flex-col justify-between gap-3 py-4 first:pt-0 last:pb-0 md:flex-row md:items-center"
-                  >
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-foreground">
-                          {app.job_title}
-                        </p>
-                        <Badge variant="outline">{app.company}</Badge>
-                        {app.job_url ? (
-                          <a
-                            href={app.job_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                          >
-                            Posting
-                            <ExternalLink className="size-3" />
-                          </a>
-                        ) : null}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Applied {app.application_date}
-                        {app.location ? ` · ${app.location}` : ""}
-                        {linkedResume ? ` · Resume: ${linkedResume.title}` : ""}
-                      </p>
-                      {app.notes ? (
-                        <p className="line-clamp-2 text-xs text-muted-foreground">
-                          {app.notes}
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      <Select
-                        value={app.status}
-                        onChange={(e) =>
-                          handleInlineStatusChange(
-                            app,
-                            e.target.value as ApplicationStatus
-                          )
-                        }
-                        className="w-32"
-                        aria-label={`Status for ${app.company}`}
-                      >
-                        {STATUS_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </Select>
-                      {app.status === "no_reply" ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          nativeButton={false}
-                          render={
-                            <Link
-                              href={`/dashboard/follow-ups?applicationId=${app.id}`}
-                            />
-                          }
-                        >
-                          Follow-up
-                        </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => openEditForm(app)}
-                        aria-label={`Edit ${app.job_title}`}
-                      >
-                        <Pencil className="size-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => setDeleteTarget(app)}
-                        aria-label={`Delete ${app.job_title}`}
-                      >
-                        <Trash2 className="size-3.5 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
+      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null)
         }}
-        title="Delete application?"
-        description={
-          deleteTarget
-            ? `Remove "${deleteTarget.job_title}" at "${deleteTarget.company}" and its follow-up reminders?`
-            : ""
-        }
+        title="Delete Application"
+        description={`Are you sure you want to delete the application for ${deleteTarget?.job_title} at ${deleteTarget?.company}?`}
         confirmLabel="Delete"
-        loading={deleting}
-        onConfirm={handleConfirmDelete}
+        destructive={true}
+        onConfirm={async () => {
+          if (deleteTarget) await handleDelete(deleteTarget.id)
+        }}
       />
+
+      {/* VIEW MODE: KANBAN BOARD */}
+      {viewMode === "board" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5 items-start overflow-x-auto pb-6">
+          {KANBAN_STAGES.map((col) => {
+            const colApps = filtered.filter((app) => {
+              if (col.id === "applied") return app.status === "applied" || app.status === "no_reply"
+              if (col.id === "offer") return app.status === "offer" || app.status === "hired"
+              return app.status === col.id
+            })
+
+            return (
+              <div
+                key={col.id}
+                className="rounded-xl border border-border/70 bg-card/40 p-3 min-h-[500px] flex flex-col space-y-3"
+              >
+                {/* Column Header */}
+                <div className="flex items-center justify-between pb-2 border-b border-border/50">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${col.color}`}>
+                      {col.label}
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono font-semibold text-muted-foreground">
+                    {colApps.length}
+                  </span>
+                </div>
+
+                {/* Column Cards */}
+                <div className="space-y-2.5 flex-1">
+                  {colApps.length === 0 ? (
+                    <div className="h-28 flex items-center justify-center border border-dashed border-border/50 rounded-lg text-[11px] text-muted-foreground/60 italic">
+                      No applications
+                    </div>
+                  ) : (
+                    colApps.map((app) => (
+                      <div
+                        key={app.id}
+                        className="rounded-lg border border-border/80 bg-card p-3.5 shadow-xs hover:border-foreground/30 transition-all space-y-2.5 relative group"
+                      >
+                        <Link
+                          href={`/dashboard/applications/${app.id}`}
+                          className="block hover:opacity-90 transition-opacity"
+                        >
+                          <div className="flex items-start justify-between gap-1">
+                            <p className="font-semibold text-xs text-foreground truncate group-hover/card:text-primary transition-colors">
+                              {app.job_title}
+                            </p>
+                            <ExternalLink className="h-3 w-3 text-muted-foreground/60 shrink-0 mt-0.5" />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Building2 className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{app.company}</span>
+                          </p>
+                          {app.location && (
+                            <p className="text-[10px] text-muted-foreground/80 flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-2.5 w-2.5 shrink-0" />
+                              <span className="truncate">{app.location}</span>
+                            </p>
+                          )}
+                        </Link>
+
+                        {/* Move stage selector */}
+                        <div className="pt-1 flex items-center justify-between border-t border-border/40 text-[10px]">
+                          <select
+                            value={app.status === "no_reply" ? "applied" : app.status === "hired" ? "offer" : app.status}
+                            onChange={(e) => handleMoveStage(app.id, e.target.value as ApplicationStatus)}
+                            className="bg-muted/40 border border-border/60 rounded px-1.5 py-0.5 text-[10px] text-foreground font-medium"
+                          >
+                            <option value="draft">Draft</option>
+                            <option value="applied">Applied</option>
+                            <option value="assessment">Assessment</option>
+                            <option value="interview">Interview</option>
+                            <option value="offer">Offer</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => openEditForm(app)}
+                              className="p-1 rounded text-muted-foreground hover:text-foreground"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget(app)}
+                              className="p-1 rounded text-muted-foreground hover:text-red-400"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* VIEW MODE: TABLE VIEW */}
+      {viewMode === "table" && (
+        <div className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/40 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                <tr>
+                  <th className="py-3 px-4">Company & Role</th>
+                  <th className="py-3 px-4">Stage</th>
+                  <th className="py-3 px-4">Location</th>
+                  <th className="py-3 px-4">Date Applied</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50 text-foreground">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-muted-foreground italic">
+                      No applications found.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((app) => (
+                    <tr key={app.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="py-3 px-4">
+                        <Link href={`/dashboard/applications/${app.id}`} className="hover:underline">
+                          <div className="font-semibold text-foreground flex items-center gap-1.5">
+                            {app.job_title}
+                            <ExternalLink className="h-3 w-3 text-muted-foreground/60" />
+                          </div>
+                          <div className="text-muted-foreground text-[11px]">{app.company}</div>
+                        </Link>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge variant="outline" className="text-[10px] capitalize">
+                          {app.status === "no_reply" ? "Applied" : app.status === "hired" ? "Offer" : app.status}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4 text-muted-foreground">
+                        {app.location || "—"}
+                      </td>
+                      <td className="py-3 px-4 text-muted-foreground font-mono">
+                        {app.application_date || new Date(app.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-4 text-right space-x-1">
+                        <Link href={`/dashboard/applications/${app.id}`}>
+                          <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs">
+                            Workspace
+                          </Button>
+                        </Link>
+                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => openEditForm(app)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-300" onClick={() => setDeleteTarget(app)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

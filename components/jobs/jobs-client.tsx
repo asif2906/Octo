@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/toast"
 import { Input } from "@/components/ui/input"
@@ -36,12 +37,14 @@ export function JobsClient({
   savedJobIds: initialSaved,
   userId,
 }: JobsClientProps) {
+  const router = useRouter()
   const [jobs, setJobs] = React.useState<DiscoveredJob[]>(initialJobs)
   const [savedIds, setSavedIds] = React.useState<Set<string>>(new Set(initialSaved))
   const [query, setQuery] = React.useState("")
   const [remoteOnly, setRemoteOnly] = React.useState(false)
   const [selectedJob, setSelectedJob] = React.useState<DiscoveredJob | null>(null)
   const [showAddManual, setShowAddManual] = React.useState(false)
+  const [startingAppId, setStartingAppId] = React.useState<string | null>(null)
   const [manualForm, setManualForm] = React.useState({
     title: "",
     company: "",
@@ -68,6 +71,43 @@ export function JobsClient({
       )
     })
   }, [jobs, query, remoteOnly])
+
+  async function handleStartApplication(job: DiscoveredJob) {
+    setStartingAppId(job.externalId)
+    try {
+      const res = await fetch("/api/applications/create-from-job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company: job.company,
+          title: job.title,
+          location: job.location,
+          description: job.description,
+          applyUrl: job.applyUrl,
+          skillsRequired: job.skillsRequired,
+          salaryRange: job.salaryRange,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to start application.")
+      }
+
+      toast({
+        title: "Draft application created!",
+        description: `Tailored resume and cover letter generated for ${job.company}. Opening Tracker...`,
+        variant: "success",
+      })
+
+      router.push("/dashboard/applications")
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error starting application"
+      toast({ title: "Application creation failed", description: msg, variant: "error" })
+    } finally {
+      setStartingAppId(null)
+    }
+  }
 
   // Save or unsave job
   async function toggleSaveJob(job: DiscoveredJob) {
@@ -285,10 +325,21 @@ export function JobsClient({
                       {isSaved ? "Saved" : "Save"}
                     </Button>
 
+                    <Button
+                      size="sm"
+                      variant="default"
+                      disabled={startingAppId === job.externalId}
+                      onClick={() => handleStartApplication(job)}
+                      className="h-8 gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      {startingAppId === job.externalId ? "Creating..." : "Start Application"}
+                    </Button>
+
                     {job.applyUrl && (
                       <a href={job.applyUrl} target="_blank" rel="noopener noreferrer">
-                        <Button size="sm" className="h-8 gap-1.5">
-                          Apply <ExternalLink className="h-3.5 w-3.5" />
+                        <Button size="sm" variant="outline" className="h-8 gap-1.5">
+                          Link <ExternalLink className="h-3.5 w-3.5" />
                         </Button>
                       </a>
                     )}

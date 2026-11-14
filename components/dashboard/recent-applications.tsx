@@ -16,17 +16,41 @@ const STATUS_META: Record<
   ApplicationStatus,
   { label: string; className: string }
 > = {
+  draft: {
+    label: "Draft",
+    className: "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300",
+  },
+  applied: {
+    label: "Applied",
+    className: "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-200",
+  },
   no_reply: {
     label: "No Reply",
     className: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200",
+  },
+  assessment: {
+    label: "Assessment",
+    className: "border-purple-200 bg-purple-50 text-purple-800 dark:border-purple-900 dark:bg-purple-950/50 dark:text-purple-200",
+  },
+  interview: {
+    label: "Interview",
+    className: "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-200",
+  },
+  offer: {
+    label: "Offer",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200",
+  },
+  hired: {
+    label: "Hired",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200",
   },
   rejected: {
     label: "Rejected",
     className: "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-200",
   },
-  hired: {
-    label: "Hired",
-    className: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200",
+  withdrawn: {
+    label: "Withdrawn",
+    className: "border-neutral-200 bg-neutral-50 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-300",
   },
 }
 

@@ -9,7 +9,16 @@ export type SubscriptionStatus =
   | "pending"
   | "paused"
 
-export type ApplicationStatus = "no_reply" | "rejected" | "hired"
+export type ApplicationStatus =
+  | "draft"
+  | "applied"
+  | "no_reply"
+  | "assessment"
+  | "interview"
+  | "offer"
+  | "hired"
+  | "rejected"
+  | "withdrawn"
 export type ResumeTemplateId =
   | "modern-professional"
   | "minimal-ats"
@@ -231,6 +240,12 @@ export interface ApplicationRow {
   job_description: string | null
   resume_id: string | null
   resume_version_id: string | null
+  cover_letter_id?: string | null
+  contact_email?: string | null
+  contact_name?: string | null
+  match_score?: number | null
+  match_reasoning?: string | null
+  salary_range?: string | null
   application_date: string
   status: ApplicationStatus
   notes: string | null
@@ -400,6 +415,8 @@ export interface CustomSectionRow {
   display_order: number
   created_at: string
 }
+
+export type { DiscoveredJob } from "@/lib/jobs/catalog"
 
 export interface JobPostingRow {
   id: string

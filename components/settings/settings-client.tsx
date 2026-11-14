@@ -163,6 +163,44 @@ export function SettingsClient({
 
       <Card>
         <CardHeader>
+          <CardTitle>Integrations & External Services</CardTitle>
+          <CardDescription>
+            Manage optional Google account connections for Gmail and Google Calendar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-lg border border-border/80 bg-muted/20 gap-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Gmail Application Emailer</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Send application drafts from your email address. Default fallback uses zero-cost direct mail application links with attachments.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
+                Native Mailer Active
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-lg border border-border/80 bg-muted/20 gap-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Google Calendar Synchronization</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Keep upcoming interview schedules synchronized with dashboard calendar and reminders.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-400">
+                Dashboard Calendar Synced
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Data Management & Privacy</CardTitle>
           <CardDescription>
             Download your full career profile, cover letters, and application history or manage data privacy.

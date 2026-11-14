@@ -259,3 +259,4 @@ export function parseResumeTextToStructured(text: string): ParsedResumeResult {
     rawText: cleanText,
   }
 }
+

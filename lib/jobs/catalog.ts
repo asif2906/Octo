@@ -156,3 +156,4 @@ export async function fetchHackerNewsJobs(): Promise<DiscoveredJob[]> {
   }
   return []
 }
+

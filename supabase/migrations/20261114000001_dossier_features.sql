@@ -256,3 +256,4 @@ create policy "Users manage own interviews" on public.interviews
 -- 6. Add theme configuration to resumes if not present
 alter table public.resumes
   add column if not exists theme_config jsonb default '{"theme":"modern","primaryColor":"#0f172a","fontSize":"medium","spacing":"normal","fontFamily":"inter","margins":"normal"}'::jsonb;
+

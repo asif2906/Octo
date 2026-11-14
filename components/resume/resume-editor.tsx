@@ -40,6 +40,7 @@ import { SkillsForm } from "@/components/resume/skills-form"
 import { ProjectsForm } from "@/components/resume/projects-form"
 import { TemplateSelector } from "@/components/resume/template-selector"
 import { ResumePreview } from "@/components/resume/resume-preview"
+import { ResumeUploadDialog } from "@/components/resume/resume-upload-dialog"
 import type {
   ResumeContent,
   ResumeSectionKey,
@@ -255,6 +256,17 @@ export function ResumeEditor({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <ResumeUploadDialog
+            userId={userId}
+            buttonVariant="outline"
+            buttonText="Upload Old Resume"
+            onComplete={(parsed) => {
+              setContent(parsed)
+              if (parsed.personalInfo.fullName) {
+                setTitle(`${parsed.personalInfo.fullName} Resume`)
+              }
+            }}
+          />
           {resumeId ? (
             <Button
               variant="outline"

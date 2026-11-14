@@ -12,6 +12,7 @@ import {
   Sparkles,
   Star,
   Trash2,
+  Upload,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { logUserActivity } from "@/lib/dashboard/activity"
@@ -24,6 +25,7 @@ import { useToast } from "@/components/ui/toast"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { ResumeUploadDialog } from "@/components/resume/resume-upload-dialog"
 import {
   Card,
   CardContent,
@@ -149,6 +151,11 @@ export function ResumesListClient({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
+          <ResumeUploadDialog
+            userId={userId}
+            buttonVariant="outline"
+            buttonText="Upload Old Resume"
+          />
           <Button
             variant="outline"
             nativeButton={false}
@@ -175,16 +182,23 @@ export function ResumesListClient({
               No resumes yet
             </h2>
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              Create your first ATS-ready resume. Any experience, education, skills, and projects saved in your Profile will pre-fill automatically.
+              Create your first ATS-ready resume or upload an existing PDF/Word resume to extract your work history, education, and skills automatically.
             </p>
-            <Button
-              className="mt-5"
-              nativeButton={false}
-              render={<Link href="/dashboard/resumes/new" />}
-            >
-              <Plus className="size-4" />
-              Create Your First Resume
-            </Button>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <ResumeUploadDialog
+                userId={userId}
+                buttonVariant="default"
+                buttonText="Upload Old Resume (PDF / Doc)"
+              />
+              <Button
+                variant="outline"
+                nativeButton={false}
+                render={<Link href="/dashboard/resumes/new" />}
+              >
+                <Plus className="size-4" />
+                Start From Scratch
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import type { SubscriptionRow } from "@/types/database"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import { getDodoClient } from "@/lib/dodo/client"
+import { getPlanFromProductId } from "@/lib/plans"
+import type { BillingInterval, SubscriptionPlan, SubscriptionRow } from "@/types/database"
 
 export async function GET() {
   try {
@@ -30,7 +33,7 @@ export async function GET() {
       )
     }
 
-    const subscription = sub as SubscriptionRow | null
+    let subscription = sub as SubscriptionRow | null
     const now = new Date()
 
     let hasActiveSubscription = false
@@ -43,6 +46,68 @@ export async function GET() {
         new Date(subscription.current_period_end) > now
       ) {
         hasActiveSubscription = true
+      }
+    }
+
+    // Active Reconcile Fallback: If not active in database, check Dodo Payments directly
+    if (!hasActiveSubscription) {
+      try {
+        const dodo = getDodoClient()
+        const userEmail = user.email?.toLowerCase().trim()
+        const dodoSubs = await dodo.subscriptions.list()
+        const items = dodoSubs.items || (dodoSubs as any).body?.items || []
+
+        const activeItem = items.find((item: any) => {
+          const itemEmail = item.customer?.email?.toLowerCase().trim()
+          const itemUserId = item.metadata?.user_id || item.metadata?.userId
+          return (
+            (itemEmail === userEmail || itemUserId === user.id) &&
+            item.status === "active"
+          )
+        })
+
+        if (activeItem) {
+          console.log("[Status Reconcile] Found active subscription in Dodo:", activeItem.subscription_id)
+          const admin = getSupabaseAdmin()
+          const planInfo = activeItem.product_id ? getPlanFromProductId(activeItem.product_id) : null
+          const mappedPlan: SubscriptionPlan =
+            planInfo?.plan ?? (activeItem.metadata?.plan as SubscriptionPlan) ?? "basic"
+          const mappedInterval: BillingInterval =
+            planInfo?.interval ?? (activeItem.metadata?.interval as BillingInterval) ?? "monthly"
+
+          await admin.rpc("sync_dodo_subscription", {
+            p_user_id: user.id,
+            p_customer_id: activeItem.customer?.customer_id ?? null,
+            p_subscription_id: activeItem.subscription_id,
+            p_product_id: activeItem.product_id,
+            p_plan: mappedPlan,
+            p_interval: mappedInterval,
+            p_status: "active",
+            p_current_period_start: activeItem.previous_billing_date || activeItem.created_at,
+            p_current_period_end: activeItem.next_billing_date,
+            p_cancel_at_period_end: activeItem.cancel_at_next_billing_date ?? false,
+          })
+
+          hasActiveSubscription = true
+          subscription = {
+            id: subscription?.id ?? "",
+            user_id: user.id,
+            plan: mappedPlan,
+            status: "active",
+            billing_interval: mappedInterval,
+            current_period_start: activeItem.previous_billing_date || activeItem.created_at,
+            current_period_end: activeItem.next_billing_date,
+            cancel_at_period_end: activeItem.cancel_at_next_billing_date ?? false,
+            cancelled_at: null,
+            dodo_customer_id: activeItem.customer?.customer_id ?? null,
+            dodo_subscription_id: activeItem.subscription_id,
+            dodo_product_id: activeItem.product_id,
+            created_at: activeItem.created_at,
+            updated_at: new Date().toISOString(),
+          } as SubscriptionRow
+        }
+      } catch (dodoErr) {
+        console.warn("[Status Reconcile] Dodo active check skipped:", dodoErr)
       }
     }
 

@@ -13,7 +13,7 @@ export function Pricing() {
               Subscription Plans
             </p>
             <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Predictable power. All taxes included.
+              Predictable power.
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
               Choose between Basic ($5/wk or $12/mo) and Pro ($11/wk or $24/mo). Predictable daily application caps, cold email quotas, and full pipeline tracking.

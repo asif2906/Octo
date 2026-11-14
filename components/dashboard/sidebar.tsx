@@ -12,6 +12,10 @@ import {
   CreditCard,
   Settings,
   X,
+  Compass,
+  Rocket,
+  FileEdit,
+  Calendar,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { OctoLogo } from "@/components/octo-logo"
@@ -25,8 +29,12 @@ interface SidebarProps {
 
 const WORKSPACE_LINKS = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/jobs", label: "Job Discovery", icon: Compass },
+  { href: "/dashboard/startups", label: "Startups", icon: Rocket },
   { href: "/dashboard/resumes", label: "My Resumes", icon: FileText },
+  { href: "/dashboard/cover-letters", label: "Cover Letters", icon: FileEdit },
   { href: "/dashboard/applications", label: "Applications", icon: Briefcase },
+  { href: "/dashboard/interviews", label: "Interviews", icon: Calendar },
   { href: "/dashboard/outreach", label: "Cold Outreach", icon: Mail },
   { href: "/dashboard/follow-ups", label: "Follow-ups", icon: BellRing },
 ]

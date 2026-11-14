@@ -160,6 +160,27 @@ export function SettingsClient({
           </Button>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Management & Privacy</CardTitle>
+          <CardDescription>
+            Download your full career profile, cover letters, and application history or manage data privacy.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Your data is strictly isolated and never used to train third-party AI models. You have complete control to export your structured JSON record at any time.
+          </p>
+          <div className="flex items-center gap-3">
+            <a href="/api/user/export" download>
+              <Button variant="outline" size="sm" className="gap-2">
+                Download Career Data (JSON)
+              </Button>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

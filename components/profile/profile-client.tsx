@@ -19,12 +19,20 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { ProfileRecordsSection } from "@/components/profile/profile-records-section"
+import { ProfileExtraSections } from "@/components/profile/profile-extra-sections"
+import { ResumeImportDialog } from "@/components/profile/resume-import-dialog"
+import { CheckCircle2, ShieldCheck, Sparkles, TrendingUp } from "lucide-react"
 import type {
+  CertificationRow,
   EducationRow,
   ExperienceRow,
+  LanguageRow,
   ProfileRow,
   ProjectRow,
+  PublicationRow,
+  ReferenceRow,
   SkillRow,
+  VolunteeringRow,
 } from "@/types/database"
 
 interface ProfileClientProps {
@@ -33,6 +41,11 @@ interface ProfileClientProps {
   experience: ExperienceRow[]
   skills: SkillRow[]
   projects: ProjectRow[]
+  certifications?: CertificationRow[]
+  languages?: LanguageRow[]
+  publications?: PublicationRow[]
+  volunteering?: VolunteeringRow[]
+  references?: ReferenceRow[]
 }
 
 export function ProfileClient({
@@ -41,6 +54,11 @@ export function ProfileClient({
   experience,
   skills,
   projects,
+  certifications = [],
+  languages = [],
+  publications = [],
+  volunteering = [],
+  references = [],
 }: ProfileClientProps) {
   const router = useRouter()
   const supabase = React.useMemo(() => createClient(), [])
@@ -59,6 +77,20 @@ export function ProfileClient({
     portfolio_url: profile.portfolio_url ?? "",
     timezone: profile.timezone || "UTC",
   })
+
+  // Calculate profile strength
+  const completeness = React.useMemo(() => {
+    let score = 0
+    if (form.full_name.trim()) score += 10
+    if (form.email.trim() || form.phone.trim()) score += 10
+    if (form.headline.trim()) score += 10
+    if (form.professional_summary.trim()) score += 15
+    if (experience.length > 0) score += 20
+    if (education.length > 0) score += 15
+    if (skills.length >= 3) score += 10
+    if (projects.length > 0 || certifications.length > 0 || languages.length > 0) score += 10
+    return Math.min(score, 100)
+  }, [form, experience, education, skills, projects, certifications, languages])
 
   const timezoneOptions = React.useMemo(
     () => getTimezoneOptions(form.timezone),
@@ -109,42 +141,64 @@ export function ProfileClient({
     await logUserActivity(supabase, {
       userId: profile.id,
       activityType: "profile_updated",
-      description: "Updated profile information",
+      description: "Updated professional profile details",
     })
 
     toast({
-      title: "Profile updated",
-      description: "Your details are saved and ready for your resumes.",
+      title: "Profile saved successfully",
       variant: "success",
     })
     router.refresh()
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Profile
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Maintain your master career details to pre-fill new resumes cleanly.
+    <div className="space-y-8">
+      {/* Profile Header & Completeness Bar */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Career Profile
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your single source of truth for AI resume tailoring and job matching.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <ResumeImportDialog userId={profile.id} onImportSuccess={() => router.refresh()} />
+        </div>
+      </div>
+
+      {/* Completeness Card */}
+      <div className="rounded-xl border border-border/80 bg-card/60 p-5 shadow-xs">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-emerald-400" />
+            <span className="text-sm font-semibold text-foreground">Profile Strength</span>
+          </div>
+          <span className="text-sm font-bold font-mono text-emerald-400">{completeness}%</span>
+        </div>
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted/60">
+          <div
+            className="h-full bg-emerald-500 transition-all duration-500"
+            style={{ width: `${completeness}%` }}
+          />
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {completeness >= 80
+            ? "Your career profile is comprehensive and ready for optimal AI matching."
+            : "Complete more sections below to improve tailoring accuracy and interview conversion."}
         </p>
       </div>
 
       <form onSubmit={handleSubmit}>
         <Card>
           <CardHeader>
-            <CardTitle>Personal Details & Summary</CardTitle>
+            <CardTitle>Personal & Contact Details</CardTitle>
             <CardDescription>
-              Last saved:{" "}
-              {new Intl.DateTimeFormat("en-US", {
-                dateStyle: "medium",
-                timeStyle: "short",
-                timeZone: profile.timezone || "UTC",
-              }).format(new Date(profile.updated_at))}
+              Basic contact and location data used when building your resumes.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="profile-full-name">Full Name *</Label>
@@ -154,8 +208,18 @@ export function ProfileClient({
                   onChange={(e) =>
                     setForm((p) => ({ ...p, full_name: e.target.value }))
                   }
-                  placeholder="Alex Rivera"
                   required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="profile-headline">Professional Headline</Label>
+                <Input
+                  id="profile-headline"
+                  value={form.headline}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, headline: e.target.value }))
+                  }
+                  placeholder="e.g. Senior Full Stack Engineer | Next.js & Cloud"
                 />
               </div>
               <div className="space-y-1.5">
@@ -167,7 +231,6 @@ export function ProfileClient({
                   onChange={(e) =>
                     setForm((p) => ({ ...p, email: e.target.value }))
                   }
-                  placeholder="alex@example.com"
                 />
               </div>
               <div className="space-y-1.5">
@@ -178,7 +241,6 @@ export function ProfileClient({
                   onChange={(e) =>
                     setForm((p) => ({ ...p, phone: e.target.value }))
                   }
-                  placeholder="+1 (555) 123-4567"
                 />
               </div>
               <div className="space-y-1.5">
@@ -189,18 +251,7 @@ export function ProfileClient({
                   onChange={(e) =>
                     setForm((p) => ({ ...p, location: e.target.value }))
                   }
-                  placeholder="Austin, TX"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="profile-headline">Professional Headline</Label>
-                <Input
-                  id="profile-headline"
-                  value={form.headline}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, headline: e.target.value }))
-                  }
-                  placeholder="Full-Stack Software Engineer"
+                  placeholder="e.g. San Francisco, CA (or Remote)"
                 />
               </div>
               <div className="space-y-1.5">
@@ -212,9 +263,9 @@ export function ProfileClient({
                     setForm((p) => ({ ...p, timezone: e.target.value }))
                   }
                 >
-                  {timezoneOptions.map((tz) => (
-                    <option key={tz} value={tz}>
-                      {tz}
+                  {timezoneOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
                     </option>
                   ))}
                 </Select>
@@ -223,7 +274,7 @@ export function ProfileClient({
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
-                <Label htmlFor="profile-linkedin">LinkedIn URL</Label>
+                <Label htmlFor="profile-linkedin">LinkedIn Profile URL</Label>
                 <Input
                   id="profile-linkedin"
                   type="url"
@@ -285,6 +336,7 @@ export function ProfileClient({
         </Card>
       </form>
 
+      {/* Core Records (Experience, Education, Skills, Projects) */}
       <ProfileRecordsSection
         userId={profile.id}
         initialEducation={education}
@@ -292,7 +344,16 @@ export function ProfileClient({
         initialSkills={skills}
         initialProjects={projects}
       />
+
+      {/* Comprehensive Career Extensions (Certifications, Languages, Publications, Volunteering, References) */}
+      <ProfileExtraSections
+        userId={profile.id}
+        initialCertifications={certifications}
+        initialLanguages={languages}
+        initialPublications={publications}
+        initialVolunteering={volunteering}
+        initialReferences={references}
+      />
     </div>
   )
 }
-

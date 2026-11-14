@@ -31,22 +31,64 @@ export const RESUME_TEMPLATES: {
   description: string
 }[] = [
   {
-    id: "modern-professional",
-    name: "Modern Professional",
-    description:
-      "Crisp sans-serif hierarchy with subtle slate accents and structured right-aligned dates.",
+    id: "modern",
+    name: "Modern Clean",
+    description: "Sleek sans-serif hierarchy with slate accents and structured metadata.",
   },
   {
-    id: "minimal-ats",
+    id: "minimal",
     name: "Minimal ATS",
-    description:
-      "Plain single-column ATS-first formatting optimized for maximum automated parser accuracy.",
+    description: "Ultra-clean single column optimized for automated resume parsers.",
   },
   {
-    id: "classic-professional",
-    name: "Classic Professional",
-    description:
-      "Traditional centered header with serif typography suited for executive, finance, and academic roles.",
+    id: "executive",
+    name: "Executive Leadership",
+    description: "Prestigious layout with classic header rules and commanding typography.",
+  },
+  {
+    id: "creative",
+    name: "Creative Accent",
+    description: "Modern vibrant design with left-accent bars and contemporary badges.",
+  },
+  {
+    id: "compact",
+    name: "Compact Dense",
+    description: "High-density single-page format maximizing accomplishments per inch.",
+  },
+  {
+    id: "elegant",
+    name: "Elegant Serif",
+    description: "Timeless editorial typography with refined spacing and subtle dividers.",
+  },
+  {
+    id: "technical",
+    name: "Technical Engineer",
+    description: "Developer-first layout with monospace accents and clear stack chips.",
+  },
+  {
+    id: "timeline",
+    name: "Timeline Track",
+    description: "Distinctive chronological timeline markers connecting career milestones.",
+  },
+  {
+    id: "classic",
+    name: "Classic Corporate",
+    description: "Balanced traditional corporate layout accepted across all industries.",
+  },
+  {
+    id: "bold",
+    name: "Bold Impact",
+    description: "High-contrast dark header block with striking visual hierarchy.",
+  },
+  {
+    id: "split",
+    name: "Split Column",
+    description: "Dual-column layout separating core skills and sidebar details from experience.",
+  },
+  {
+    id: "nordic",
+    name: "Nordic Minimalist",
+    description: "Scandinavian-inspired airy aesthetic with soft dividers and understated elegance.",
   },
 ]
 

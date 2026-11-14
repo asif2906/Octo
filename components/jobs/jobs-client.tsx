@@ -208,7 +208,7 @@ export function JobsClient({
       employmentType: "Full-time",
       experienceLevel: "Mid-Senior",
       description: manualForm.description.trim() || "Directly submitted opportunity.",
-      applyUrl: manualForm.applyUrl.trim() || undefined,
+      applyUrl: manualForm.applyUrl.trim() || "https://octo.tech",
       salaryRange: manualForm.salaryRange.trim() || undefined,
       skillsRequired: candidateSkills.slice(0, 4),
       isStartup: false,

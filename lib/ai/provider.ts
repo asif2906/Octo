@@ -17,78 +17,127 @@ export function getActiveAiApiKey(): string {
   )
 }
 
+// In-memory cache & deduplication to optimize quota
+const aiResponseCache = new Map<string, { text: string; expiresAt: number }>()
+const inFlightRequests = new Map<string, Promise<string>>()
+
 export function getActiveAiModel(): string {
   return process.env.OCTO_AI_MODEL?.trim() || "gemini-2.5-flash"
 }
 
+export function isAIEmergencyPaused(): boolean {
+  return process.env.OCTO_AI_PAUSED?.trim() === "true"
+}
+
 export async function generateAIText(options: GenerateTextOptions): Promise<string> {
   const { prompt, systemInstruction, temperature = 0.7 } = options
-  const apiKey = getActiveAiApiKey()
-  const model = getActiveAiModel()
 
-  if (apiKey) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            ...(systemInstruction
-              ? [{ role: "user", parts: [{ text: `System Instructions: ${systemInstruction}` }] }]
-              : []),
-            { role: "user", parts: [{ text: prompt }] },
-          ],
-          generationConfig: {
-            temperature,
-          },
-        }),
-      })
+  // 1. Emergency Pause Switch check
+  if (isAIEmergencyPaused()) {
+    console.warn("[AI Provider] Generation paused via emergency switch OCTO_AI_PAUSED.")
+    throw new Error("AI services are currently paused for maintenance by the platform administrator.")
+  }
 
-      if (res.ok) {
-        const data = await res.json()
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-        if (text && text.trim().length > 0) {
-          return text.trim()
+  // 2. Cache & Deduplication check
+  const cacheKey = `${options.systemInstruction || ""}|${prompt}`
+  const cached = aiResponseCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.text
+  }
+
+  // Check if identical request is already in-flight
+  if (inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey)!
+  }
+
+  const executeRequest = async (): Promise<string> => {
+    const apiKey = getActiveAiApiKey()
+    const model = getActiveAiModel()
+
+    if (!apiKey) {
+      throw new Error("Centrally configured GEMINI_API_KEY is not set on the server backend.")
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+    const payload = {
+      contents: [
+        ...(systemInstruction
+          ? [{ role: "user", parts: [{ text: `System Instructions: ${systemInstruction}` }] }]
+          : []),
+        { role: "user", parts: [{ text: prompt }] },
+      ],
+      generationConfig: {
+        temperature,
+      },
+    }
+
+    // Exponential backoff retry loop (max 2 retries)
+    let attempts = 0
+    let delay = 1000
+
+    while (attempts < 3) {
+      attempts++
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(25000), // 25s timeout
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+          if (text && text.trim().length > 0) {
+            const cleanText = text.trim()
+            // Cache for 10 minutes
+            aiResponseCache.set(cacheKey, {
+              text: cleanText,
+              expiresAt: Date.now() + 10 * 60 * 1000,
+            })
+            return cleanText
+          }
         }
-      } else {
+
+        if (res.status === 429) {
+          // Rate limit exceeded: back off if retries remain
+          if (attempts < 3) {
+            await new Promise((r) => setTimeout(r, delay))
+            delay *= 2
+            continue
+          }
+          throw new Error("Google Gemini API quota or rate limit exceeded (HTTP 429). Please try again shortly.")
+        }
+
+        if (res.status >= 500) {
+          if (attempts < 3) {
+            await new Promise((r) => setTimeout(r, delay))
+            delay *= 2
+            continue
+          }
+          throw new Error(`Google Gemini service error (HTTP ${res.status}).`)
+        }
+
         const errBody = await res.text()
-        console.warn("[AI Provider] Gemini API returned error:", res.status, errBody)
-      }
-    } catch (geminiErr) {
-      console.warn("[AI Provider] Gemini call failed, falling back:", geminiErr)
-    }
-  }
-
-  // Fallback: Local AI (Ollama / LM Studio)
-  const localUrl = process.env.LOCAL_AI_URL
-  if (localUrl) {
-    try {
-      const res = await fetch(`${localUrl.replace(/\/$/, "")}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: process.env.LOCAL_AI_MODEL || "llama3",
-          messages: [
-            ...(systemInstruction ? [{ role: "system", content: systemInstruction }] : []),
-            { role: "user", content: prompt },
-          ],
-        }),
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        const text = data.choices?.[0]?.message?.content
-        if (text && text.trim().length > 0) {
-          return text.trim()
+        throw new Error(`Google Gemini API error (HTTP ${res.status}): ${errBody.slice(0, 200)}`)
+      } catch (err: unknown) {
+        if (attempts >= 3) {
+          throw err
         }
+        await new Promise((r) => setTimeout(r, delay))
+        delay *= 2
       }
-    } catch (localErr) {
-      console.warn("[AI Provider] Local AI call failed:", localErr)
     }
+
+    return ""
   }
 
-  return ""
+  const promise = executeRequest().finally(() => {
+    inFlightRequests.delete(cacheKey)
+  })
+
+  inFlightRequests.set(cacheKey, promise)
+  return promise
 }
 
 // 1. AI Job Match & Skill Gap Analysis

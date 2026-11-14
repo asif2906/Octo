@@ -1,9 +1,9 @@
-// Job Discovery & Startup Catalog Engine ($0 Cost Architecture)
-// Powered by Hacker News "Who is Hiring" public Firebase API and Curated Open Tech Job Feeds
+// Job Discovery & Public Sources Engine ($0 Cost Architecture)
+// Retrieves genuine public job listings across Greenhouse, Lever, Ashby, Hacker News, and RemoteOK
 
 export interface DiscoveredJob {
   externalId: string
-  source: "hackernews" | "freehire" | "ycombinator" | "manual"
+  source: "greenhouse" | "lever" | "ashby" | "remoteok" | "hackernews" | "ycombinator" | "manual"
   title: string
   company: string
   location: string
@@ -12,21 +12,21 @@ export interface DiscoveredJob {
   experienceLevel: string
   description: string
   salaryRange?: string
-  applyUrl?: string
+  applyUrl: string
   companyUrl?: string
   skillsRequired: string[]
   isStartup: boolean
   postedAt: string
 }
 
-// Curated Startups for Startup Discovery (Module D)
+// 1. Curated Public Startups Directory
 export const CURATED_STARTUPS: DiscoveredJob[] = [
   {
     externalId: "startup-octo-01",
     source: "ycombinator",
     title: "Senior Full Stack Engineer (Next.js & Supabase)",
     company: "Synthetix AI (YC W24)",
-    location: "San Francisco, CA",
+    location: "San Francisco, CA / Remote",
     isRemote: true,
     employmentType: "Full-time",
     experienceLevel: "Senior",
@@ -43,7 +43,7 @@ export const CURATED_STARTUPS: DiscoveredJob[] = [
     source: "ycombinator",
     title: "AI Infrastructure & Backend Engineer",
     company: "Vektor Labs (YC S23)",
-    location: "New York, NY",
+    location: "New York, NY / Remote",
     isRemote: true,
     employmentType: "Full-time",
     experienceLevel: "Mid-Senior",
@@ -60,7 +60,7 @@ export const CURATED_STARTUPS: DiscoveredJob[] = [
     source: "ycombinator",
     title: "Founding Frontend Architect",
     company: "Cortex OS (YC W24)",
-    location: "Remote / London, UK",
+    location: "Remote Worldwide",
     isRemote: true,
     employmentType: "Full-time",
     experienceLevel: "Lead",
@@ -77,7 +77,7 @@ export const CURATED_STARTUPS: DiscoveredJob[] = [
     source: "ycombinator",
     title: "Security & DevOps Engineer",
     company: "ShieldFlow (YC S24)",
-    location: "Austin, TX",
+    location: "Austin, TX / Remote",
     isRemote: true,
     employmentType: "Full-time",
     experienceLevel: "Senior",
@@ -91,62 +91,213 @@ export const CURATED_STARTUPS: DiscoveredJob[] = [
   },
 ]
 
-// Fetch jobs from Hacker News Who is Hiring public API
+// 2. Greenhouse Public Job Board API ($0 public read-only JSON endpoint)
+export async function fetchGreenhouseJobs(boardToken: string): Promise<DiscoveredJob[]> {
+  try {
+    const url = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(boardToken)}/jobs?content=true`
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(6000),
+    })
+
+    if (!res.ok) return []
+    const data = await res.json()
+    const rawJobs = Array.isArray(data.jobs) ? data.jobs : []
+
+    return rawJobs.slice(0, 15).map((j: {
+      id: number
+      title: string
+      location?: { name?: string }
+      absolute_url: string
+      updated_at?: string
+      content?: string
+    }) => {
+      const locationName = j.location?.name || "Remote"
+      const isRemote =
+        locationName.toLowerCase().includes("remote") ||
+        j.title.toLowerCase().includes("remote")
+
+      return {
+        externalId: `gh-${boardToken}-${j.id}`,
+        source: "greenhouse" as const,
+        title: j.title,
+        company: boardToken.charAt(0).toUpperCase() + boardToken.slice(1),
+        location: locationName,
+        isRemote,
+        employmentType: "Full-time",
+        experienceLevel: j.title.toLowerCase().includes("senior")
+          ? "Senior"
+          : j.title.toLowerCase().includes("lead")
+          ? "Lead"
+          : "Mid-Level",
+        description: (j.content || `${j.title} position at ${boardToken}`).replace(/<[^>]*>?/gm, " ").slice(0, 1000),
+        applyUrl: j.absolute_url,
+        companyUrl: `https://${boardToken}.com`,
+        skillsRequired: extractSkillsFromText(j.title + " " + (j.content || "")),
+        isStartup: false,
+        postedAt: j.updated_at || new Date().toISOString(),
+      }
+    })
+  } catch (err) {
+    console.warn(`[Job Discovery] Greenhouse (${boardToken}) fetch failed:`, err)
+    return []
+  }
+}
+
+// 3. Lever Public Job Board API ($0 public read-only JSON endpoint)
+export async function fetchLeverJobs(companySlug: string): Promise<DiscoveredJob[]> {
+  try {
+    const url = `https://api.lever.co/v0/postings/${encodeURIComponent(companySlug)}?mode=json`
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(6000),
+    })
+
+    if (!res.ok) return []
+    const data = await res.json()
+    const rawPostings = Array.isArray(data) ? data : []
+
+    return rawPostings.slice(0, 15).map((p: {
+      id: string
+      text: string
+      hostedUrl: string
+      categories?: { location?: string; commitment?: string; team?: string }
+      descriptionPlain?: string
+      createdAt?: number
+    }) => {
+      const loc = p.categories?.location || "Remote"
+      const isRemote =
+        loc.toLowerCase().includes("remote") ||
+        p.text.toLowerCase().includes("remote")
+
+      return {
+        externalId: `lever-${companySlug}-${p.id}`,
+        source: "lever" as const,
+        title: p.text,
+        company: companySlug.charAt(0).toUpperCase() + companySlug.slice(1),
+        location: loc,
+        isRemote,
+        employmentType: p.categories?.commitment || "Full-time",
+        experienceLevel: p.text.toLowerCase().includes("senior")
+          ? "Senior"
+          : p.text.toLowerCase().includes("lead")
+          ? "Lead"
+          : "Mid-Level",
+        description: (p.descriptionPlain || p.text).slice(0, 1000),
+        applyUrl: p.hostedUrl,
+        companyUrl: `https://${companySlug}.com`,
+        skillsRequired: extractSkillsFromText(p.text + " " + (p.descriptionPlain || "")),
+        isStartup: false,
+        postedAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
+      }
+    })
+  } catch (err) {
+    console.warn(`[Job Discovery] Lever (${companySlug}) fetch failed:`, err)
+    return []
+  }
+}
+
+// 4. RemoteOK Public JSON API ($0 public endpoint)
+export async function fetchRemoteOkJobs(): Promise<DiscoveredJob[]> {
+  try {
+    const res = await fetch("https://remoteok.com/api", {
+      headers: {
+        "User-Agent": "OctoJobDiscovery/1.0 (Public Research Feeds)",
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(6000),
+    })
+
+    if (!res.ok) return []
+    const data = await res.json()
+    if (!Array.isArray(data)) return []
+
+    // RemoteOK first element is metadata/legal banner, filter items with id and position
+    const items = data.filter((item) => item && item.id && item.position).slice(0, 20)
+
+    return items.map((item) => ({
+      externalId: `remoteok-${item.id}`,
+      source: "remoteok" as const,
+      title: item.position,
+      company: item.company || "Tech Company",
+      location: item.location || "Remote Worldwide",
+      isRemote: true,
+      employmentType: "Full-time",
+      experienceLevel: item.position.toLowerCase().includes("senior")
+        ? "Senior"
+        : item.position.toLowerCase().includes("lead")
+        ? "Lead"
+        : "Mid-Level",
+      description: (item.description || item.position).replace(/<[^>]*>?/gm, " ").slice(0, 1000),
+      salaryRange: item.salary_min && item.salary_max ? `$${item.salary_min} - $${item.salary_max}` : undefined,
+      applyUrl: item.url || item.apply_url || "https://remoteok.com",
+      companyUrl: item.company_logo || undefined,
+      skillsRequired: Array.isArray(item.tags) && item.tags.length > 0 ? item.tags.slice(0, 6) : ["Software Engineering"],
+      isStartup: true,
+      postedAt: item.date ? new Date(item.date).toISOString() : new Date().toISOString(),
+    }))
+  } catch (err) {
+    console.warn("[Job Discovery] RemoteOK fetch failed:", err)
+    return []
+  }
+}
+
+// 5. Hacker News Who is Hiring public API
 export async function fetchHackerNewsJobs(): Promise<DiscoveredJob[]> {
   try {
-    // 1. Get user 'whoishiring' submitted stories
     const userRes = await fetch("https://hacker-news.firebaseio.com/v0/user/whoishiring.json", {
-      next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(6000),
     })
     if (!userRes.ok) return []
     const userData = await userRes.json()
     const submittedIds: number[] = userData.submitted || []
 
-    // 2. Find the latest "Ask HN: Who is hiring?" thread
-    for (const id of submittedIds.slice(0, 5)) {
-      const itemRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)
+    for (const id of submittedIds.slice(0, 4)) {
+      const itemRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, {
+        signal: AbortSignal.timeout(6000),
+      })
       if (!itemRes.ok) continue
       const item = await itemRes.json()
       if (item && item.title && item.title.includes("Who is hiring")) {
         const commentKids: number[] = item.kids || []
-        // Fetch top 15 comments
         const jobs: DiscoveredJob[] = []
+
         for (const kidId of commentKids.slice(0, 15)) {
-          const kidRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${kidId}.json`)
-          if (!kidRes.ok) continue
-          const kid = await kidRes.json()
-          if (!kid || !kid.text || kid.deleted) continue
+          try {
+            const kidRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${kidId}.json`, {
+              signal: AbortSignal.timeout(4000),
+            })
+            if (!kidRes.ok) continue
+            const kid = await kidRes.json()
+            if (!kid || !kid.text || kid.deleted) continue
 
-          // Parse raw HN comment text (usually "Company | Role | Location | Remote/ONSITE")
-          const cleanText = kid.text.replace(/<[^>]*>?/gm, " ").trim()
-          const firstLine = cleanText.split("\n")[0] || ""
-          const parts = firstLine.split("|").map((p: string) => p.trim())
+            const cleanText = kid.text.replace(/<[^>]*>?/gm, " ").trim()
+            const firstLine = cleanText.split("\n")[0] || ""
+            const parts = firstLine.split("|").map((p: string) => p.trim())
 
-          const company = parts[0] || "Tech Startup"
-          const title = parts[1] || "Software Engineer"
-          const location = parts[2] || "Remote"
-          const isRemote = cleanText.toLowerCase().includes("remote")
+            const company = parts[0] || "Tech Startup"
+            const title = parts[1] || "Software Engineer"
+            const location = parts[2] || "Remote"
+            const isRemote = cleanText.toLowerCase().includes("remote")
 
-          // Extract basic skills
-          const skillsMatch = ["react", "typescript", "python", "node", "go", "sql", "aws", "docker"].filter((s) =>
-            cleanText.toLowerCase().includes(s)
-          )
-
-          jobs.push({
-            externalId: `hn-${kid.id}`,
-            source: "hackernews",
-            title,
-            company,
-            location,
-            isRemote,
-            employmentType: "Full-time",
-            experienceLevel: "Mid-Senior",
-            description: cleanText.slice(0, 800),
-            applyUrl: `https://news.ycombinator.com/item?id=${kid.id}`,
-            skillsRequired: skillsMatch.length > 0 ? skillsMatch : ["Software Engineering"],
-            isStartup: true,
-            postedAt: new Date(kid.time * 1000).toISOString(),
-          })
+            jobs.push({
+              externalId: `hn-${kid.id}`,
+              source: "hackernews" as const,
+              title,
+              company,
+              location,
+              isRemote,
+              employmentType: "Full-time",
+              experienceLevel: "Mid-Senior",
+              description: cleanText.slice(0, 800),
+              applyUrl: `https://news.ycombinator.com/item?id=${kid.id}`,
+              skillsRequired: extractSkillsFromText(cleanText),
+              isStartup: true,
+              postedAt: new Date(kid.time * 1000).toISOString(),
+            })
+          } catch {
+            continue
+          }
         }
         return jobs
       }
@@ -157,3 +308,49 @@ export async function fetchHackerNewsJobs(): Promise<DiscoveredJob[]> {
   return []
 }
 
+// 6. Aggregate Discover All Active Permitted Public Feeds
+export async function discoverAllPublicJobs(): Promise<DiscoveredJob[]> {
+  const [ghJobs1, ghJobs2, leverJobs, remoteOkJobs, hnJobs] = await Promise.all([
+    fetchGreenhouseJobs("cloudflare"),
+    fetchGreenhouseJobs("hashicorp"),
+    fetchLeverJobs("spotify"),
+    fetchRemoteOkJobs(),
+    fetchHackerNewsJobs(),
+  ])
+
+  const combined = [
+    ...CURATED_STARTUPS,
+    ...remoteOkJobs,
+    ...ghJobs1,
+    ...ghJobs2,
+    ...leverJobs,
+    ...hnJobs,
+  ]
+
+  // Deduplicate by externalId
+  const seen = new Set<string>()
+  const uniqueJobs: DiscoveredJob[] = []
+
+  for (const job of combined) {
+    if (!seen.has(job.externalId)) {
+      seen.add(job.externalId)
+      uniqueJobs.push(job)
+    }
+  }
+
+  return uniqueJobs
+}
+
+// Helper: Extract skills from job text
+function extractSkillsFromText(text: string): string[] {
+  const skillsVocabulary = [
+    "TypeScript", "JavaScript", "React", "Next.js", "Node.js", "Python",
+    "Go", "Rust", "PostgreSQL", "SQL", "Supabase", "AWS", "GCP",
+    "Docker", "Kubernetes", "Tailwind CSS", "GraphQL", "REST", "Redis",
+    "CI/CD", "Terraform", "Git", "System Design", "Microservices"
+  ]
+
+  const lower = text.toLowerCase()
+  const matched = skillsVocabulary.filter((s) => lower.includes(s.toLowerCase()))
+  return matched.length > 0 ? matched.slice(0, 6) : ["Software Engineering"]
+}

@@ -11,29 +11,70 @@ async function AutoApplyContent() {
   let resumes: Pick<ResumeRow, "id" | "title" | "is_primary">[] = []
   let applications: ApplicationRow[] = []
   let candidateSkills: string[] = []
+  let initialConfig = null
+  let initialManualItems: Array<{
+    id: string
+    job_title: string
+    company: string
+    apply_url?: string
+    notes?: string
+    created_at: string
+  }> = []
+  let initialAvailableJobs: Array<{
+    id: string
+    title: string
+    company: string
+    location?: string
+    apply_url?: string
+    skills_required?: string[]
+  }> = []
 
   if (ctx.schemaReady) {
-    const [resumesRes, appsRes, skillsRes] = await Promise.all([
-      supabase
-        .from("resumes")
-        .select("id, title, is_primary")
-        .eq("user_id", ctx.user.id)
-        .order("is_primary", { ascending: false }),
-      supabase
-        .from("applications")
-        .select("*")
-        .eq("user_id", ctx.user.id)
-        .order("created_at", { ascending: false })
-        .limit(20),
-      supabase
-        .from("skills")
-        .select("name")
-        .eq("user_id", ctx.user.id),
-    ])
+    const [resumesRes, appsRes, skillsRes, configRes, manualRes, jobsRes] =
+      await Promise.all([
+        supabase
+          .from("resumes")
+          .select("id, title, is_primary")
+          .eq("user_id", ctx.user.id)
+          .order("is_primary", { ascending: false }),
+        supabase
+          .from("applications")
+          .select("*")
+          .eq("user_id", ctx.user.id)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("skills")
+          .select("name")
+          .eq("user_id", ctx.user.id),
+        supabase
+          .from("auto_apply_configurations")
+          .select("*")
+          .eq("user_id", ctx.user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("auto_apply_run_items")
+          .select("id, job_title, company, apply_url, notes, created_at")
+          .eq("user_id", ctx.user.id)
+          .eq("status", "needs_manual_action")
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("job_postings")
+          .select("id, title, company, location, apply_url, skills_required")
+          .order("posted_at", { ascending: false })
+          .limit(20),
+      ])
 
-    resumes = (resumesRes.data as Pick<ResumeRow, "id" | "title" | "is_primary">[] | null) ?? []
+    resumes =
+      (resumesRes.data as Pick<ResumeRow, "id" | "title" | "is_primary">[] | null) ?? []
     applications = (appsRes.data as ApplicationRow[] | null) ?? []
     candidateSkills = (skillsRes.data ?? []).map((s: { name: string }) => s.name)
+    initialConfig = configRes.data || null
+    initialManualItems = manualRes.data || []
+    initialAvailableJobs = jobsRes.data || []
   }
 
   return (
@@ -43,6 +84,9 @@ async function AutoApplyContent() {
       resumes={resumes}
       recentApplications={applications}
       candidateSkills={candidateSkills}
+      initialConfig={initialConfig}
+      initialManualItems={initialManualItems}
+      initialAvailableJobs={initialAvailableJobs}
     />
   )
 }

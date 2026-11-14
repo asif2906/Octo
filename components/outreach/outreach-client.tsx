@@ -191,6 +191,107 @@ export function OutreachClient({
   )
   const [savingDraft, setSavingDraft] = React.useState(false)
 
+  // Automated Cold Approach Campaign State (Section 4)
+  const [campaignRoles, setCampaignRoles] = React.useState(
+    "Software Engineer, Backend Developer, Full Stack Developer"
+  )
+  const [isDiscovering, setIsDiscovering] = React.useState(false)
+  const [discoveredContacts, setDiscoveredContacts] = React.useState<Array<{
+    company: string
+    companyDomain: string
+    targetRole: string
+    contactRole: string
+    contactEmail: string
+    sourceUrl: string
+    verificationStatus: "verified"
+    emailSubject: string
+    emailBody: string
+  }>>([])
+
+  async function handleDiscoverContacts() {
+    setIsDiscovering(true)
+    try {
+      const roles = campaignRoles.split(",").map((r) => r.trim()).filter(Boolean)
+      const res = await fetch("/api/automation/cold-approach/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetRoles: roles }),
+      })
+
+      if (!res.ok) {
+        throw new Error("Failed to discover hiring contacts.")
+      }
+
+      const data = await res.json()
+      setDiscoveredContacts(data.contacts || [])
+      toast({
+        title: "Hiring Contacts Discovered",
+        description: `Found ${data.contacts?.length || 0} verified public recruitment contacts with AI personalized outreach.`,
+        variant: "success",
+      })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Discovery failed"
+      toast({ title: "Discovery Error", description: msg, variant: "error" })
+    } finally {
+      setIsDiscovering(false)
+    }
+  }
+
+  async function handleApproveAndQueue(contact: (typeof discoveredContacts)[0]) {
+    try {
+      // 1. Add to recipients
+      const { data: recData, error: recErr } = await supabase
+        .from("outreach_recipients")
+        .insert({
+          user_id: userId,
+          name: `${contact.company} Talent Team`,
+          email: contact.contactEmail,
+          company: contact.company,
+          job_title: contact.contactRole,
+          notes: `Discovered from public posting: ${contact.sourceUrl}`,
+        })
+        .select("*")
+        .single()
+
+      if (recErr || !recData) throw recErr || new Error("Could not add recipient")
+
+      const savedRec = recData as OutreachRecipientRow
+      setRecipients((prev) => [savedRec, ...prev])
+
+      // 2. Add draft message
+      const { data: msgData, error: msgErr } = await supabase
+        .from("outreach_messages")
+        .insert({
+          user_id: userId,
+          recipient_id: savedRec.id,
+          recipient_name: savedRec.name,
+          recipient_email: savedRec.email,
+          subject: contact.emailSubject,
+          body: contact.emailBody + OPT_OUT_LINE,
+          status: "draft",
+        })
+        .select("*")
+        .single()
+
+      if (msgErr || !msgData) throw msgErr || new Error("Could not create message draft")
+
+      const savedMsg = msgData as OutreachMessageRow
+      setMessages((prev) => [savedMsg, ...prev])
+
+      // Remove from pending discovered list
+      setDiscoveredContacts((prev) => prev.filter((c) => c.contactEmail !== contact.contactEmail))
+
+      toast({
+        title: "Contact Approved & Queued",
+        description: `AI message for ${contact.company} saved to active drafts.`,
+        variant: "success",
+      })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Approval failed"
+      toast({ title: "Failed to Queue", description: msg, variant: "error" })
+    }
+  }
+
   const [deleteTarget, setDeleteTarget] = React.useState<
     | { table: "outreach_recipients"; id: string; label: string }
     | { table: "email_templates"; id: string; label: string }
@@ -516,6 +617,113 @@ export function OutreachClient({
           </p>
         </div>
       </div>
+
+      {/* Automated Cold Approach Campaign (Section 4) */}
+      <Card className="border-primary/30 bg-card/60">
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <span>AI Automated Cold Approach</span>
+                <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary text-[10px]">
+                  Targeted Discovery
+                </Badge>
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Select your target roles. Octo discovers matching hiring companies, finds verified public recruitment contact addresses, and drafts personalized emails with Gemini.
+              </CardDescription>
+            </div>
+            <span className="text-xs font-mono font-semibold text-muted-foreground">
+              {usage.plan === "pro" ? "Pro Plan (20/day max)" : "Basic Plan (15/day max)"}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 text-xs">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex-1 w-full space-y-1">
+              <Label className="text-xs font-semibold">Target Job Roles</Label>
+              <Input
+                value={campaignRoles}
+                onChange={(e) => setCampaignRoles(e.target.value)}
+                placeholder="e.g. Software Engineer, Backend Developer, Data Analyst"
+                className="text-xs h-9"
+              />
+            </div>
+            <Button
+              onClick={handleDiscoverContacts}
+              disabled={isDiscovering}
+              className="w-full sm:w-auto text-xs h-9 mt-auto font-semibold gap-1.5"
+            >
+              {isDiscovering ? (
+                <span className="inline-block animate-spin mr-1">⏳</span>
+              ) : (
+                <Send className="size-3.5" />
+              )}
+              {isDiscovering ? "Discovering & Generating..." : "Discover Hiring Contacts"}
+            </Button>
+          </div>
+
+          {discoveredContacts.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <p className="font-semibold text-foreground text-xs">
+                Discovered Hiring Contacts & AI Drafts ({discoveredContacts.length})
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {discoveredContacts.map((contact) => (
+                  <div
+                    key={contact.contactEmail}
+                    className="p-3.5 rounded-xl border border-border/80 bg-background/50 space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-sm text-foreground">{contact.company}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Target Vacancy: {contact.targetRole}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px]">
+                        Verified Public Contact
+                      </Badge>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg border bg-muted/40 space-y-1 text-[11px]">
+                      <p className="text-muted-foreground">
+                        <span className="font-semibold text-foreground">Contact: </span>
+                        {contact.contactEmail} ({contact.contactRole})
+                      </p>
+                      <p className="text-muted-foreground truncate">
+                        <span className="font-semibold text-foreground">Source: </span>
+                        <a
+                          href={contact.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {contact.sourceUrl}
+                        </a>
+                      </p>
+                      <div className="pt-1.5 border-t border-border/40">
+                        <p className="font-semibold text-foreground">Subject: {contact.emailSubject}</p>
+                        <p className="text-muted-foreground mt-0.5 line-clamp-3 italic">
+                          "{contact.emailBody}"
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      onClick={() => handleApproveAndQueue(contact)}
+                      className="w-full text-xs h-8 font-semibold gap-1"
+                    >
+                      <span>Approve & Add to Outreach Queue</span>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recipients & CSV Import */}

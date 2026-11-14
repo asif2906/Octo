@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 import { getDashboardContext } from "@/lib/dashboard/data"
 import { createClient } from "@/lib/supabase/server"
-import { fetchHackerNewsJobs, CURATED_STARTUPS } from "@/lib/jobs/catalog"
+import { discoverAllPublicJobs } from "@/lib/jobs/catalog"
 import { JobsClient } from "@/components/jobs/jobs-client"
 import type { JobSearchRow } from "@/types/database"
 
@@ -37,9 +37,8 @@ async function JobsPageContent({
     savedSearches = (searchesRes.data as JobSearchRow[] | null) ?? []
   }
 
-  // 2. Fetch jobs from zero-cost sources
-  const hnJobs = await fetchHackerNewsJobs()
-  const combinedJobs = [...CURATED_STARTUPS, ...hnJobs]
+  // 2. Fetch jobs from zero-cost public sources (Greenhouse, Lever, RemoteOK, HN, Curated Startups)
+  const combinedJobs = await discoverAllPublicJobs()
 
   // 3. Get user's saved job IDs
   let savedExternalIds: string[] = []

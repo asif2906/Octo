@@ -1,22 +1,24 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
-  FileText,
-  Briefcase,
+  Compass,
+  Bot,
+  Zap,
   Mail,
+  FileText,
+  Sparkles,
+  FileEdit,
   BellRing,
   User,
   CreditCard,
   Settings,
+  ChevronDown,
+  ChevronRight,
   X,
-  Compass,
-  Rocket,
-  FileEdit,
-  Calendar,
-  Bot,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { OctoLogo } from "@/components/octo-logo"
@@ -27,25 +29,6 @@ interface SidebarProps {
   mobileOpen: boolean
   onCloseMobile: () => void
 }
-
-const WORKSPACE_LINKS = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/jobs", label: "Job Discovery", icon: Compass },
-  { href: "/dashboard/startups", label: "Startups", icon: Rocket },
-  { href: "/dashboard/agent", label: "Job Agent", icon: Bot },
-  { href: "/dashboard/resumes", label: "My Resumes", icon: FileText },
-  { href: "/dashboard/cover-letters", label: "Cover Letters", icon: FileEdit },
-  { href: "/dashboard/applications", label: "Applications", icon: Briefcase },
-  { href: "/dashboard/interviews", label: "Interviews", icon: Calendar },
-  { href: "/dashboard/outreach", label: "Cold Outreach", icon: Mail },
-  { href: "/dashboard/follow-ups", label: "Follow-ups", icon: BellRing },
-]
-
-const ACCOUNT_LINKS = [
-  { href: "/dashboard/profile", label: "Profile", icon: User },
-  { href: "/dashboard/subscription", label: "Subscription", icon: CreditCard },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
-]
 
 export function DashboardSidebar({
   usage,
@@ -58,6 +41,23 @@ export function DashboardSidebar({
     0,
     usage.applicationsDailyLimit - usage.applicationsUsedToday
   )
+
+  // Expandable state for Automation & Resume
+  const isAutomationRoute = pathname.startsWith("/dashboard/automation")
+  const isResumeRoute =
+    pathname.startsWith("/dashboard/resumes") ||
+    pathname.startsWith("/dashboard/cover-letters")
+
+  const [automationOpen, setAutomationOpen] = React.useState(true)
+  const [resumeOpen, setResumeOpen] = React.useState(true)
+
+  React.useEffect(() => {
+    if (isAutomationRoute) setAutomationOpen(true)
+  }, [isAutomationRoute])
+
+  React.useEffect(() => {
+    if (isResumeRoute) setResumeOpen(true)
+  }, [isResumeRoute])
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href
@@ -83,55 +83,214 @@ export function DashboardSidebar({
           <p className="px-3 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
             Workspace
           </p>
+
           <div className="mt-2 space-y-1">
-            {WORKSPACE_LINKS.map((item) => {
-              const Icon = item.icon
-              const active = isActive(item.href, item.exact)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onCloseMobile}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <Icon className="size-4 shrink-0" />
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
+            {/* 1. Overview */}
+            <Link
+              href="/dashboard"
+              onClick={onCloseMobile}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/dashboard", true)
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <LayoutDashboard className="size-4 shrink-0" />
+              <span>Overview</span>
+            </Link>
+
+            {/* 2. Job Discovery */}
+            <Link
+              href="/dashboard/jobs"
+              onClick={onCloseMobile}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/dashboard/jobs")
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Compass className="size-4 shrink-0" />
+              <span>Job Discovery</span>
+            </Link>
+
+            {/* 3. Automation (Expandable Parent) */}
+            <div className="space-y-0.5">
+              <button
+                type="button"
+                onClick={() => setAutomationOpen(!automationOpen)}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isAutomationRoute
+                    ? "text-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <Bot className="size-4 shrink-0 text-primary" />
+                  <span>Automation</span>
+                </div>
+                {automationOpen ? (
+                  <ChevronDown className="size-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="size-3.5 text-muted-foreground" />
+                )}
+              </button>
+
+              {automationOpen && (
+                <div className="ml-4 space-y-1 border-l border-border/60 pl-2">
+                  <Link
+                    href="/dashboard/automation/auto-apply"
+                    onClick={onCloseMobile}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                      isActive("/dashboard/automation/auto-apply")
+                        ? "bg-primary text-primary-foreground font-semibold"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <Zap className="size-3.5 shrink-0" />
+                    <span>Auto Apply</span>
+                  </Link>
+
+                  <Link
+                    href="/dashboard/automation/cold-approach"
+                    onClick={onCloseMobile}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                      isActive("/dashboard/automation/cold-approach")
+                        ? "bg-primary text-primary-foreground font-semibold"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <Mail className="size-3.5 shrink-0" />
+                    <span>Cold Approach</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* 4. Resume (Expandable Parent) */}
+            <div className="space-y-0.5">
+              <button
+                type="button"
+                onClick={() => setResumeOpen(!resumeOpen)}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isResumeRoute
+                    ? "text-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="size-4 shrink-0 text-primary" />
+                  <span>Resume</span>
+                </div>
+                {resumeOpen ? (
+                  <ChevronDown className="size-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="size-3.5 text-muted-foreground" />
+                )}
+              </button>
+
+              {resumeOpen && (
+                <div className="ml-4 space-y-1 border-l border-border/60 pl-2">
+                  <Link
+                    href="/dashboard/resumes/tailor"
+                    onClick={onCloseMobile}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                      isActive("/dashboard/resumes/tailor")
+                        ? "bg-primary text-primary-foreground font-semibold"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <Sparkles className="size-3.5 shrink-0" />
+                    <span>Tailor</span>
+                  </Link>
+
+                  <Link
+                    href="/dashboard/cover-letters"
+                    onClick={onCloseMobile}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                      isActive("/dashboard/cover-letters")
+                        ? "bg-primary text-primary-foreground font-semibold"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <FileEdit className="size-3.5 shrink-0" />
+                    <span>Cover Letter</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* 5. Follow-up */}
+            <Link
+              href="/dashboard/follow-ups"
+              onClick={onCloseMobile}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/dashboard/follow-ups")
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <BellRing className="size-4 shrink-0" />
+              <span>Follow-up</span>
+            </Link>
           </div>
         </div>
 
+        {/* Account / Utility Section */}
         <div>
           <p className="px-3 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
             Account
           </p>
           <div className="mt-2 space-y-1">
-            {ACCOUNT_LINKS.map((item) => {
-              const Icon = item.icon
-              const active = isActive(item.href)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onCloseMobile}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <Icon className="size-4 shrink-0" />
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
+            <Link
+              href="/dashboard/profile"
+              onClick={onCloseMobile}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/dashboard/profile")
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <User className="size-4 shrink-0" />
+              <span>Career Profile</span>
+            </Link>
+
+            <Link
+              href="/dashboard/subscription"
+              onClick={onCloseMobile}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/dashboard/subscription")
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <CreditCard className="size-4 shrink-0" />
+              <span>Subscription</span>
+            </Link>
+
+            <Link
+              href="/dashboard/settings"
+              onClick={onCloseMobile}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/dashboard/settings")
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Settings className="size-4 shrink-0" />
+              <span>Settings</span>
+            </Link>
           </div>
         </div>
       </nav>
@@ -154,7 +313,7 @@ export function DashboardSidebar({
             onClick={onCloseMobile}
             className="mt-2.5 inline-flex text-xs font-medium text-primary hover:underline"
           >
-            View plan limits →
+            Manage plan & limits →
           </Link>
         </div>
       </div>
@@ -182,4 +341,3 @@ export function DashboardSidebar({
     </>
   )
 }
-

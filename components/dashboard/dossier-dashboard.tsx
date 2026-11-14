@@ -16,26 +16,59 @@ import {
   Filter,
   FileText,
   Bookmark,
+  LayoutGrid,
+  List,
+  Search,
+  Building2,
+  MapPin,
+  ExternalLink,
+  Plus,
+  Compass,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import type { ApplicationRow, InterviewRow, SavedJobRow } from "@/types/database"
+import { Input } from "@/components/ui/input"
+import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/components/ui/toast"
+import type { ApplicationRow, ApplicationStatus, InterviewRow, SavedJobRow, ResumeRow } from "@/types/database"
 
 interface DossierDashboardProps {
   applications: ApplicationRow[]
   interviews: InterviewRow[]
   savedJobs: SavedJobRow[]
   candidateName: string
+  userId: string
+  resumes?: Pick<ResumeRow, "id" | "title" | "is_primary">[]
 }
 
+const KANBAN_STAGES: Array<{ id: ApplicationStatus; label: string; color: string }> = [
+  { id: "draft", label: "Draft", color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20" },
+  { id: "applied", label: "Applied", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  { id: "assessment", label: "Assessment", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
+  { id: "interview", label: "Interview", color: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" },
+  { id: "offer", label: "Offer", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+  { id: "rejected", label: "Rejected", color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
+]
+
 export function DossierDashboard({
-  applications,
+  applications: initialApplications,
   interviews,
   savedJobs,
   candidateName,
+  userId,
+  resumes = [],
 }: DossierDashboardProps) {
+  const [applications, setApplications] = React.useState<ApplicationRow[]>(initialApplications)
   const [funnelFilter, setFunnelFilter] = React.useState<"30" | "90" | "all">("all")
   const [currentCalendarMonth, setCurrentCalendarMonth] = React.useState(new Date())
+
+  // Applications Tracker state inside Overview
+  const [viewMode, setViewMode] = React.useState<"board" | "table">("board")
+  const [searchQuery, setSearchQuery] = React.useState("")
+  const [stageFilter, setStageFilter] = React.useState<string>("all")
+
+  const supabase = React.useMemo(() => createClient(), [])
+  const { toast } = useToast()
 
   // Filter applications by timeframe
   const filteredApps = React.useMemo(() => {
@@ -53,6 +86,7 @@ export function DossierDashboard({
   const inInterview = filteredApps.filter((a) => a.status === "interview").length
   const offers = filteredApps.filter((a) => a.status === "offer" || a.status === "hired").length
   const rejections = filteredApps.filter((a) => a.status === "rejected").length
+  const responseRate = total > 0 ? Math.round(((inInterview + offers) / total) * 100) : 0
 
   // Attention Items
   const attentionDrafts = applications.filter((a) => a.status === "draft").slice(0, 3)
@@ -69,11 +103,9 @@ export function DossierDashboard({
     const daysInMonth = new Date(year, month + 1, 0).getDate()
 
     const days: Array<{ dayNumber: number | null; hasEvent: boolean; dateStr: string }> = []
-    // Leading empty days
     for (let i = 0; i < firstDay; i++) {
       days.push({ dayNumber: null, hasEvent: false, dateStr: "" })
     }
-    // Days of month
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`
       const hasEvent = interviews.some((i) => i.interview_date.startsWith(dateStr))
@@ -107,6 +139,43 @@ export function DossierDashboard({
 
   const maxWeeklyCount = Math.max(...weeklyStats.map((w) => w.count), 4)
 
+  // Filtered applications for Tracker section
+  const trackerApps = React.useMemo(() => {
+    return applications.filter((app) => {
+      if (stageFilter !== "all" && app.status !== stageFilter) return false
+      if (!searchQuery.trim()) return true
+      const q = searchQuery.toLowerCase()
+      return (
+        app.company.toLowerCase().includes(q) ||
+        app.job_title.toLowerCase().includes(q) ||
+        (app.location && app.location.toLowerCase().includes(q))
+      )
+    })
+  }, [applications, stageFilter, searchQuery])
+
+  async function handleMoveStage(appId: string, newStatus: ApplicationStatus) {
+    const original = [...applications]
+    setApplications((prev) =>
+      prev.map((a) => (a.id === appId ? { ...a, status: newStatus } : a))
+    )
+
+    const { error } = await supabase
+      .from("applications")
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq("id", appId)
+
+    if (error) {
+      setApplications(original)
+      toast({ title: "Failed to update status", description: error.message, variant: "error" })
+    } else {
+      toast({
+        title: "Stage Updated",
+        description: `Application moved to ${newStatus}.`,
+        variant: "success",
+      })
+    }
+  }
+
   return (
     <div className="space-y-8">
       {/* Welcome Banner */}
@@ -122,12 +191,12 @@ export function DossierDashboard({
         <div className="flex items-center gap-2.5">
           <Link href="/dashboard/jobs">
             <Button size="sm" variant="outline" className="gap-1.5">
-              <Briefcase className="h-4 w-4" /> Find Jobs
+              <Compass className="h-4 w-4" /> Discover Jobs
             </Button>
           </Link>
-          <Link href="/dashboard/applications">
+          <Link href="/dashboard/resumes/tailor">
             <Button size="sm" className="gap-1.5">
-              <Sparkles className="h-4 w-4" /> Application Tracker
+              <Sparkles className="h-4 w-4" /> Tailor Resume
             </Button>
           </Link>
         </div>
@@ -212,7 +281,7 @@ export function DossierDashboard({
         </div>
       </div>
 
-      {/* Main Grid: Left side (Weekly Activity + Attention) | Right side (Calendar + Interviews) */}
+      {/* Middle Grid: Weekly Activity + Attention | Calendar + Interviews */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Weekly Application Activity Chart */}
@@ -257,7 +326,6 @@ export function DossierDashboard({
             </div>
 
             <div className="space-y-3">
-              {/* Drafts waiting for review */}
               {attentionDrafts.length > 0 ? (
                 attentionDrafts.map((draft) => (
                   <div
@@ -272,16 +340,15 @@ export function DossierDashboard({
                         {draft.company} · Ready to review and apply
                       </p>
                     </div>
-                    <Link href={`/dashboard/applications`}>
+                    <Link href={`/dashboard/applications/${draft.id}`}>
                       <Button size="sm" variant="outline" className="gap-1 text-xs">
-                        Review <ArrowRight className="h-3.5 w-3.5" />
+                        Open Workspace <ArrowRight className="h-3.5 w-3.5" />
                       </Button>
                     </Link>
                   </div>
                 ))
               ) : null}
 
-              {/* Saved jobs not yet applied */}
               {savedJobs.length > 0 && (
                 <div className="flex items-center justify-between p-3.5 rounded-lg border border-border/60 bg-muted/20">
                   <div>
@@ -301,7 +368,7 @@ export function DossierDashboard({
               )}
 
               {attentionDrafts.length === 0 && savedJobs.length === 0 && (
-                <div className="py-8 text-center text-xs text-muted-foreground">
+                <div className="py-6 text-center text-xs text-muted-foreground">
                   <CheckCircle2 className="h-6 w-6 text-emerald-400 mx-auto mb-2" />
                   Your pipeline is completely up to date! Discover new roles in Job Discovery.
                 </div>
@@ -345,7 +412,6 @@ export function DossierDashboard({
               </div>
             </div>
 
-            {/* Days header */}
             <div className="grid grid-cols-7 text-center text-[10px] font-semibold text-muted-foreground">
               <span>Su</span>
               <span>Mo</span>
@@ -356,7 +422,6 @@ export function DossierDashboard({
               <span>Sa</span>
             </div>
 
-            {/* Month grid */}
             <div className="grid grid-cols-7 gap-1 text-center text-xs">
               {calendarDays.map((d, idx) => (
                 <div
@@ -382,9 +447,6 @@ export function DossierDashboard({
               <h4 className="font-semibold text-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-purple-400" /> Upcoming Interviews
               </h4>
-              <Link href="/dashboard/interviews" className="text-[11px] text-primary hover:underline">
-                View all
-              </Link>
             </div>
 
             <div className="space-y-2.5">
@@ -414,6 +476,237 @@ export function DossierDashboard({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* FULL APPLICATION MANAGEMENT WORKSPACE SECTION */}
+      <div className="space-y-4 pt-4 border-t border-border/60">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-primary" /> Application Tracking Pipeline
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Manage your candidate pipeline across all stages. Click any application to open its tailored documents.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex items-center rounded-lg border border-border bg-muted/30 p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode("board")}
+                className={`p-1.5 rounded-md text-xs font-medium transition-colors ${
+                  viewMode === "board"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Board view"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`p-1.5 rounded-md text-xs font-medium transition-colors ${
+                  viewMode === "table"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Table view"
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+
+            <Link href="/dashboard/jobs">
+              <Button size="sm" className="gap-1.5 text-xs h-9">
+                <Plus className="h-3.5 w-3.5" /> Start New Application
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Search & Filter Bar */}
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by company, role, or location..."
+              className="pl-9 h-9 text-xs"
+            />
+          </div>
+
+          <select
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+            className="h-9 rounded-lg border border-border/80 bg-background px-3 text-xs text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-44"
+          >
+            <option value="all">All Stages ({applications.length})</option>
+            <option value="draft">Drafts ({drafts})</option>
+            <option value="applied">Applied ({applied})</option>
+            <option value="assessment">Assessment ({assessments})</option>
+            <option value="interview">Interview ({inInterview})</option>
+            <option value="offer">Offer ({offers})</option>
+            <option value="rejected">Rejected ({rejections})</option>
+          </select>
+        </div>
+
+        {/* VIEW MODE: KANBAN BOARD */}
+        {viewMode === "board" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5 items-start overflow-x-auto pb-4">
+            {KANBAN_STAGES.map((col) => {
+              const colApps = trackerApps.filter((app) => {
+                if (col.id === "applied") return app.status === "applied" || app.status === "no_reply"
+                if (col.id === "offer") return app.status === "offer" || app.status === "hired"
+                return app.status === col.id
+              })
+
+              return (
+                <div
+                  key={col.id}
+                  className="rounded-xl border border-border/70 bg-card/40 p-3 min-h-[420px] flex flex-col space-y-3"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-border/50">
+                    <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${col.color}`}>
+                      {col.label}
+                    </span>
+                    <span className="text-xs font-mono font-semibold text-muted-foreground">
+                      {colApps.length}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 flex-1">
+                    {colApps.length === 0 ? (
+                      <div className="h-24 flex items-center justify-center border border-dashed border-border/50 rounded-lg text-[11px] text-muted-foreground/60 italic">
+                        Empty
+                      </div>
+                    ) : (
+                      colApps.map((app) => (
+                        <div
+                          key={app.id}
+                          className="rounded-lg border border-border/80 bg-card p-3 shadow-xs hover:border-foreground/30 transition-all space-y-2 group"
+                        >
+                          <Link href={`/dashboard/applications/${app.id}`} className="block hover:opacity-90">
+                            <div className="flex items-start justify-between gap-1">
+                              <p className="font-semibold text-xs text-foreground truncate group-hover:text-primary transition-colors">
+                                {app.job_title}
+                              </p>
+                              <ExternalLink className="h-3 w-3 text-muted-foreground/60 shrink-0 mt-0.5" />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Building2 className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{app.company}</span>
+                            </p>
+                            {app.location && (
+                              <p className="text-[10px] text-muted-foreground/80 flex items-center gap-1 mt-0.5">
+                                <MapPin className="h-2.5 w-2.5 shrink-0" />
+                                <span className="truncate">{app.location}</span>
+                              </p>
+                            )}
+                          </Link>
+
+                          <div className="pt-1.5 flex items-center justify-between border-t border-border/40 text-[10px]">
+                            <select
+                              value={app.status === "no_reply" ? "applied" : app.status === "hired" ? "offer" : app.status}
+                              onChange={(e) => handleMoveStage(app.id, e.target.value as ApplicationStatus)}
+                              className="bg-muted/40 border border-border/60 rounded px-1.5 py-0.5 text-[10px] text-foreground font-medium"
+                            >
+                              <option value="draft">Draft</option>
+                              <option value="applied">Applied</option>
+                              <option value="assessment">Assessment</option>
+                              <option value="interview">Interview</option>
+                              <option value="offer">Offer</option>
+                              <option value="rejected">Rejected</option>
+                            </select>
+
+                            <Link
+                              href={`/dashboard/applications/${app.id}`}
+                              className="text-primary hover:underline font-medium text-[10px]"
+                            >
+                              Workspace →
+                            </Link>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* VIEW MODE: TABLE VIEW */}
+        {viewMode === "table" && (
+          <div className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted/40 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Company & Role</th>
+                    <th className="py-3 px-4">Stage</th>
+                    <th className="py-3 px-4">Location</th>
+                    <th className="py-3 px-4">Date Applied</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50 text-foreground">
+                  {trackerApps.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-muted-foreground italic">
+                        No applications found matching your criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    trackerApps.map((app) => (
+                      <tr key={app.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="py-3 px-4">
+                          <Link href={`/dashboard/applications/${app.id}`} className="hover:underline">
+                            <div className="font-semibold text-foreground flex items-center gap-1.5">
+                              {app.job_title}
+                              <ExternalLink className="h-3 w-3 text-muted-foreground/60" />
+                            </div>
+                            <div className="text-muted-foreground text-[11px]">{app.company}</div>
+                          </Link>
+                        </td>
+                        <td className="py-3 px-4">
+                          <select
+                            value={app.status === "no_reply" ? "applied" : app.status === "hired" ? "offer" : app.status}
+                            onChange={(e) => handleMoveStage(app.id, e.target.value as ApplicationStatus)}
+                            className="bg-muted/40 border border-border/60 rounded px-2 py-1 text-xs text-foreground font-medium capitalize"
+                          >
+                            <option value="draft">Draft</option>
+                            <option value="applied">Applied</option>
+                            <option value="assessment">Assessment</option>
+                            <option value="interview">Interview</option>
+                            <option value="offer">Offer</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {app.location || "—"}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground font-mono">
+                          {app.application_date || new Date(app.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <Link href={`/dashboard/applications/${app.id}`}>
+                            <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs">
+                              Open Workspace
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

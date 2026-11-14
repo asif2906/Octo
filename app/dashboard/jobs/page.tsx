@@ -3,21 +3,38 @@ import { getDashboardContext } from "@/lib/dashboard/data"
 import { createClient } from "@/lib/supabase/server"
 import { fetchHackerNewsJobs, CURATED_STARTUPS } from "@/lib/jobs/catalog"
 import { JobsClient } from "@/components/jobs/jobs-client"
-import type { SkillRow, SavedJobRow } from "@/types/database"
+import type { JobSearchRow } from "@/types/database"
 
-async function JobsPageContent() {
-  const ctx = await getDashboardContext()
+async function JobsPageContent({
+  searchParamsPromise,
+}: {
+  searchParamsPromise: Promise<{ tab?: string }>
+}) {
+  const [{ tab }, ctx] = await Promise.all([
+    searchParamsPromise,
+    getDashboardContext(),
+  ])
   const supabase = await createClient()
 
   // 1. Get user skills for compatibility scoring
   let candidateSkills: string[] = []
-  if (ctx.schemaReady) {
-    const { data: skills } = await supabase
-      .from("skills")
-      .select("skill_name")
-      .eq("user_id", ctx.user.id)
+  let savedSearches: JobSearchRow[] = []
 
-    candidateSkills = (skills || []).map((s: any) => s.skill_name).filter(Boolean)
+  if (ctx.schemaReady) {
+    const [skillsRes, searchesRes] = await Promise.all([
+      supabase
+        .from("skills")
+        .select("skill_name")
+        .eq("user_id", ctx.user.id),
+      supabase
+        .from("job_searches")
+        .select("*")
+        .eq("user_id", ctx.user.id)
+        .order("created_at", { ascending: false }),
+    ])
+
+    candidateSkills = (skillsRes.data || []).map((s: any) => s.skill_name).filter(Boolean)
+    savedSearches = (searchesRes.data as JobSearchRow[] | null) ?? []
   }
 
   // 2. Fetch jobs from zero-cost sources
@@ -43,11 +60,18 @@ async function JobsPageContent() {
       candidateSkills={candidateSkills}
       savedJobIds={savedExternalIds}
       userId={ctx.user.id}
+      savedSearches={savedSearches}
+      isPro={ctx.usage.plan === "pro"}
+      initialTab={tab || "search"}
     />
   )
 }
 
-export default function JobsPage() {
+export default function JobsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
   return (
     <Suspense
       fallback={
@@ -61,8 +85,7 @@ export default function JobsPage() {
         </div>
       }
     >
-      <JobsPageContent />
+      <JobsPageContent searchParamsPromise={searchParams} />
     </Suspense>
   )
 }
-

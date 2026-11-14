@@ -11,6 +11,7 @@ import {
   Lock,
   Plus,
   Trash2,
+  Sparkles,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { logUserActivity } from "@/lib/dashboard/activity"
@@ -77,7 +78,41 @@ export function FollowUpsClient({
     React.useState<FollowUpReminderRow | null>(null)
   const [deleting, setDeleting] = React.useState(false)
 
+  const [generatingForApp, setGeneratingForApp] = React.useState<ApplicationRow | null>(null)
+  const [aiFollowUpDraft, setAiFollowUpDraft] = React.useState<{ subject: string; body: string } | null>(null)
+  const [drafting, setDrafting] = React.useState(false)
   const followUpsUnlocked = true
+
+  async function handleGenerateAiFollowUp(app: ApplicationRow) {
+    setGeneratingForApp(app)
+    setDrafting(true)
+    try {
+      const res = await fetch("/api/follow-ups/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidateName: "Candidate",
+          company: app.company,
+          jobTitle: app.job_title,
+          applicationDate: app.application_date,
+          stage: app.status,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setAiFollowUpDraft(data.email)
+      } else {
+        throw new Error("Failed to generate follow-up.")
+      }
+    } catch {
+      setAiFollowUpDraft({
+        subject: `Following up on ${app.job_title} application — Candidate`,
+        body: `Hi Hiring Team at ${app.company},\n\nI am writing to politely follow up on my application for the ${app.job_title} position. I remain very enthusiastic about the opportunity to contribute to your engineering milestones.\n\nPlease let me know if there are any additional materials I can provide to assist in your review.\n\nBest regards,\nCandidate`,
+      })
+    } finally {
+      setDrafting(false)
+    }
+  }
 
   async function handleCreateReminder(e: React.FormEvent) {
     e.preventDefault()
@@ -354,6 +389,18 @@ export function FollowUpsClient({
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
+                          {app && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleGenerateAiFollowUp(app)}
+                              className="text-xs gap-1.5"
+                            >
+                              <Sparkles className="size-3.5 text-primary" />
+                              Draft AI Note
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             variant="outline"
@@ -445,6 +492,72 @@ export function FollowUpsClient({
         loading={deleting}
         onConfirm={handleDelete}
       />
+
+      {/* AI Follow-up Draft Dialog */}
+      {generatingForApp && aiFollowUpDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="relative w-full max-w-lg rounded-2xl border border-border bg-background p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground text-base flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" /> AI Follow-up Message
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Tailored for {generatingForApp.company} ({generatingForApp.job_title})
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => { setGeneratingForApp(null); setAiFollowUpDraft(null) }}>
+                Close
+              </Button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <Label className="text-xs font-semibold">Subject</Label>
+                <Input
+                  value={aiFollowUpDraft.subject}
+                  onChange={(e) => setAiFollowUpDraft({ ...aiFollowUpDraft, subject: e.target.value })}
+                  className="mt-1 text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold">Email Body</Label>
+                <Textarea
+                  rows={6}
+                  value={aiFollowUpDraft.body}
+                  onChange={(e) => setAiFollowUpDraft({ ...aiFollowUpDraft, body: e.target.value })}
+                  className="mt-1 text-xs leading-relaxed"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-border">
+              <span className="text-[11px] text-muted-foreground">Review before sending.</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${aiFollowUpDraft.subject}\n\n${aiFollowUpDraft.body}`)
+                    toast({ title: "Copied to clipboard", variant: "success" })
+                  }}
+                  className="text-xs"
+                >
+                  Copy Message
+                </Button>
+                <a
+                  href={`mailto:${generatingForApp.contact_email || ""}?subject=${encodeURIComponent(aiFollowUpDraft.subject)}&body=${encodeURIComponent(aiFollowUpDraft.body)}`}
+                >
+                  <Button size="sm" className="text-xs">
+                    Open in Mail
+                  </Button>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

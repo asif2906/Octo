@@ -2,7 +2,7 @@ import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { getDashboardContext } from "@/lib/dashboard/data"
 import { DossierDashboard } from "@/components/dashboard/dossier-dashboard"
-import type { ApplicationRow, InterviewRow, SavedJobRow } from "@/types/database"
+import type { ApplicationRow, InterviewRow, SavedJobRow, ResumeRow } from "@/types/database"
 
 async function OverviewContent() {
   const ctx = await getDashboardContext()
@@ -11,9 +11,10 @@ async function OverviewContent() {
   let applications: ApplicationRow[] = []
   let interviews: InterviewRow[] = []
   let savedJobs: SavedJobRow[] = []
+  let resumes: Pick<ResumeRow, "id" | "title" | "is_primary">[] = []
 
   if (ctx.schemaReady) {
-    const [appsRes, intRes, savedRes] = await Promise.all([
+    const [appsRes, intRes, savedRes, resumesRes] = await Promise.all([
       supabase
         .from("applications")
         .select("*")
@@ -30,11 +31,17 @@ async function OverviewContent() {
         .eq("user_id", ctx.user.id)
         .eq("status", "saved")
         .order("created_at", { ascending: false }),
+      supabase
+        .from("resumes")
+        .select("id, title, is_primary")
+        .eq("user_id", ctx.user.id)
+        .order("is_primary", { ascending: false }),
     ])
 
     applications = (appsRes.data as ApplicationRow[] | null) ?? []
     interviews = (intRes.data as InterviewRow[] | null) ?? []
     savedJobs = (savedRes.data as SavedJobRow[] | null) ?? []
+    resumes = (resumesRes.data as Pick<ResumeRow, "id" | "title" | "is_primary">[] | null) ?? []
   }
 
   return (
@@ -43,6 +50,8 @@ async function OverviewContent() {
       interviews={interviews}
       savedJobs={savedJobs}
       candidateName={ctx.profile.full_name || ctx.user.email?.split("@")[0] || "Candidate"}
+      userId={ctx.user.id}
+      resumes={resumes}
     />
   )
 }

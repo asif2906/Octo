@@ -60,15 +60,38 @@ export function CoverLetterClient({
 
     setIsGenerating(true)
 
-    // Call zero-cost deterministic or AI generation
-    const generatedContent = generateCoverLetterDeterministic({
-      fullName: candidateName || "Candidate",
-      company: company.trim(),
-      jobTitle: jobTitle.trim(),
-      skills: candidateSkills,
-      tone,
-      experienceSummary: candidateSummary,
-    })
+    let generatedContent = ""
+    try {
+      const res = await fetch("/api/cover-letters/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: candidateName || "Candidate",
+          company: company.trim(),
+          jobTitle: jobTitle.trim(),
+          skills: candidateSkills,
+          tone,
+          experienceSummary: candidateSummary,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        generatedContent = data.content
+      }
+    } catch {
+      // Fallback
+    }
+
+    if (!generatedContent) {
+      generatedContent = generateCoverLetterDeterministic({
+        fullName: candidateName || "Candidate",
+        company: company.trim(),
+        jobTitle: jobTitle.trim(),
+        skills: candidateSkills,
+        tone,
+        experienceSummary: candidateSummary,
+      })
+    }
 
     const title = `${company.trim()} — ${jobTitle.trim()}`
 

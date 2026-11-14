@@ -11,6 +11,17 @@ import {
   Save,
   Sparkles,
   Trash2,
+  FileText,
+  Upload,
+  Plus,
+  MessageSquare,
+  Send,
+  Loader2,
+  RefreshCw,
+  Palette,
+  Eye,
+  CheckCircle2,
+  Sliders,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { logUserActivity } from "@/lib/dashboard/activity"
@@ -22,9 +33,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { ResumeUploadDialog } from "@/components/resume/resume-upload-dialog"
 import {
   Card,
   CardContent,
@@ -37,6 +48,7 @@ import type {
   ResumeContent,
   ResumeRow,
   ResumeVersionRow,
+  ResumeTemplateId,
 } from "@/types/database"
 
 interface TailorClientProps {
@@ -57,6 +69,9 @@ export function TailorClient({
   const router = useRouter()
   const supabase = React.useMemo(() => createClient(), [])
   const { toast } = useToast()
+
+  const [activeTab, setActiveTab] = React.useState<"tailor" | "base" | "versions">("tailor")
+  const [showUploadModal, setShowUploadModal] = React.useState(false)
 
   const defaultResume =
     resumes.find((r) => r.id === preselectedResumeId) ??
@@ -80,6 +95,10 @@ export function TailorClient({
     React.useState<ResumeVersionRow | null>(null)
   const [deleting, setDeleting] = React.useState(false)
 
+  // Conversational AI Refinement Chat state
+  const [chatInstruction, setChatInstruction] = React.useState("")
+  const [isRefining, setIsRefining] = React.useState(false)
+
   const selectedResume = resumes.find((r) => r.id === selectedResumeId) ?? null
 
   async function handleGenerate(e: React.FormEvent) {
@@ -87,7 +106,7 @@ export function TailorClient({
     if (!selectedResumeId || !jobDescription.trim()) {
       toast({
         title: "Missing details",
-        description: "Choose a resume and paste a job description first.",
+        description: "Choose a source resume and paste the target job description.",
         variant: "error",
       })
       return
@@ -125,17 +144,53 @@ export function TailorClient({
 
       setTailoredContent(normalizeResumeContent(payload.tailoredContent))
       toast({
-        title: "Tailored resume generated",
-        description: "Review the preview below and save it when ready.",
+        title: "Tailored resume generated!",
+        description: "Review preview, refine with AI chat if needed, and save version.",
         variant: "success",
       })
       router.refresh()
     } catch {
-      const msg = "Network error while contacting the tailoring API."
+      const msg = "Network error while contacting the central AI engine."
       setTailorError(msg)
       toast({ title: "Request failed", description: msg, variant: "error" })
     } finally {
       setTailoring(false)
+    }
+  }
+
+  async function handleChatRefinement(e: React.FormEvent) {
+    e.preventDefault()
+    if (!chatInstruction.trim() || !tailoredContent) return
+
+    setIsRefining(true)
+    try {
+      const res = await fetch("/api/resumes/tailor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resumeId: selectedResumeId,
+          jobTitle,
+          company,
+          jobDescription: `${jobDescription}\n\nCandidate Refinement Directive: ${chatInstruction}`,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.tailoredContent) {
+        setTailoredContent(normalizeResumeContent(data.tailoredContent))
+        setChatInstruction("")
+        toast({
+          title: "Resume Refined!",
+          description: "Applied your AI chat instruction to the tailored document.",
+          variant: "success",
+        })
+      } else {
+        throw new Error(data.error || "Failed to refine resume.")
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error refining"
+      toast({ title: "Refinement failed", description: msg, variant: "error" })
+    } finally {
+      setIsRefining(false)
     }
   }
 
@@ -202,258 +257,374 @@ export function TailorClient({
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            nativeButton={false}
-            render={<Link href="/dashboard/resumes" />}
-          >
-            <ArrowLeft className="size-4" />
-            My Resumes
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              AI Resume Tailoring
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              Resume Workspace
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Tailor truthful phrasing and keyword alignment for a target job description.
-            </p>
+            <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary text-xs">
+              Tailor & Themes
+            </Badge>
           </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your base resumes across 12 themes and generate truthful, job-specific tailored versions.
+          </p>
         </div>
-        <Badge variant={usage.aiTailoringEnabled ? "default" : "outline"}>
-          {usage.aiTailoringEnabled
-            ? `${usage.aiTailoringUsedToday}/${usage.aiTailoringDailyLimit} used today (soft limit)`
-            : "Included on Basic & Pro"}
-        </Badge>
+
+        <div className="flex items-center gap-2">
+          <ResumeUploadDialog
+            userId={userId}
+            buttonVariant="outline"
+            buttonText="Upload Old Resume"
+          />
+
+          <Link href="/dashboard/resumes/new">
+            <Button size="sm" className="gap-1.5 text-xs">
+              <Plus className="h-3.5 w-3.5" /> Create Base Resume
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      {!usage.aiTailoringEnabled ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full border border-border bg-muted">
-              <Lock className="size-5 text-muted-foreground" />
-            </div>
-            <h2 className="mt-4 text-lg font-semibold text-foreground">
-              Upgrade to Basic or Pro for AI Resume Tailoring
-            </h2>
-            <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
-              The Free plan does not include AI resume tailoring. Basic ($9/mo) and Pro ($19/mo) include up to 20 tailored generations per day.
-            </p>
-            <Button
-              className="mt-5"
-              nativeButton={false}
-              render={<Link href="/dashboard/subscription" />}
-            >
-              View Plans
-            </Button>
-          </CardContent>
-        </Card>
-      ) : resumes.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-sm text-muted-foreground">
-              Create at least one base resume before tailoring for a role.
-            </p>
-            <Button
-              className="mt-4"
-              nativeButton={false}
-              render={<Link href="/dashboard/resumes/new" />}
-            >
-              Create Base Resume
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6 xl:grid-cols-12">
-          <Card className="xl:col-span-5">
-            <CardHeader>
-              <CardTitle>Target Job Details</CardTitle>
-              <CardDescription>
-                AI will never fabricate experience, companies, dates, or degrees.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleGenerate} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="tailor-resume">Source Resume</Label>
-                  <Select
-                    id="tailor-resume"
-                    value={selectedResumeId}
-                    onChange={(e) => setSelectedResumeId(e.target.value)}
-                  >
-                    {resumes.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.title}
-                        {r.is_primary ? " (Primary)" : ""}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
+      {/* Tabs Bar */}
+      <div className="flex items-center gap-2 border-b border-border pb-3 text-xs">
+        <button
+          type="button"
+          onClick={() => setActiveTab("tailor")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+            activeTab === "tailor"
+              ? "bg-primary text-primary-foreground shadow-xs font-semibold"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Tailor Resume
+        </button>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="tailor-job-title">Job Title</Label>
-                    <Input
-                      id="tailor-job-title"
-                      value={jobTitle}
-                      onChange={(e) => setJobTitle(e.target.value)}
-                      placeholder="Senior Product Engineer"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="tailor-company">Company</Label>
-                    <Input
-                      id="tailor-company"
-                      value={company}
-                      onChange={(e) => setCompany(e.target.value)}
-                      placeholder="Linear"
-                    />
-                  </div>
-                </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab("base")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+            activeTab === "base"
+              ? "bg-primary text-primary-foreground shadow-xs font-semibold"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          <Palette className="h-3.5 w-3.5" />
+          Base Resumes & 12 Themes ({resumes.length})
+        </button>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="tailor-jd">Job Description *</Label>
-                  <Textarea
-                    id="tailor-jd"
-                    rows={10}
-                    value={jobDescription}
-                    onChange={(e) => setJobDescription(e.target.value)}
-                    placeholder="Paste the full job description here..."
-                    required
+        <button
+          type="button"
+          onClick={() => setActiveTab("versions")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+            activeTab === "versions"
+              ? "bg-primary text-primary-foreground shadow-xs font-semibold"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Tailored Versions ({versions.length})
+        </button>
+      </div>
+
+      {/* TAB 1: TAILOR RESUME */}
+      {activeTab === "tailor" && (
+        <div className="space-y-6">
+          {resumes.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center space-y-3">
+                <FileText className="h-10 w-10 text-muted-foreground mx-auto" />
+                <p className="text-sm text-foreground font-semibold">
+                  No Base Resume Found
+                </p>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  Create a base resume or upload an existing PDF/Word file to begin tailoring for target job descriptions.
+                </p>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <ResumeUploadDialog
+                    userId={userId}
+                    buttonVariant="outline"
+                    buttonText="Upload File"
                   />
+                  <Link href="/dashboard/resumes/new">
+                    <Button size="sm" className="gap-1.5 text-xs">
+                      <Plus className="h-3.5 w-3.5" /> Create New
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-6 xl:grid-cols-12">
+              {/* Left Column: Target Inputs */}
+              <Card className="xl:col-span-5">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sliders className="h-4 w-4 text-primary" /> Target Job Parameters
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    AI aligns your verified profile experience with vacancy keywords. Zero fabrication guarantee.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleGenerate} className="space-y-4 text-xs">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="tailor-resume" className="text-xs font-semibold">Source Resume</Label>
+                      <select
+                        id="tailor-resume"
+                        value={selectedResumeId}
+                        onChange={(e) => setSelectedResumeId(e.target.value)}
+                        className="w-full h-9 rounded-lg border border-border/80 bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        {resumes.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.title} {r.is_primary ? "(Primary)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="tailor-job-title" className="text-xs font-semibold">Job Title</Label>
+                        <Input
+                          id="tailor-job-title"
+                          value={jobTitle}
+                          onChange={(e) => setJobTitle(e.target.value)}
+                          placeholder="e.g. Staff Full Stack Engineer"
+                          className="h-9 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="tailor-company" className="text-xs font-semibold">Company</Label>
+                        <Input
+                          id="tailor-company"
+                          value={company}
+                          onChange={(e) => setCompany(e.target.value)}
+                          placeholder="e.g. Supabase"
+                          className="h-9 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="tailor-jd" className="text-xs font-semibold">Job Description *</Label>
+                      <Textarea
+                        id="tailor-jd"
+                        rows={8}
+                        value={jobDescription}
+                        onChange={(e) => setJobDescription(e.target.value)}
+                        placeholder="Paste the full job description here..."
+                        required
+                        className="text-xs leading-relaxed"
+                      />
+                    </div>
+
+                    {tailorError ? (
+                      <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                        <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                        <span>{tailorError}</span>
+                      </div>
+                    ) : null}
+
+                    <Button type="submit" className="w-full gap-2 text-xs h-9 font-medium" disabled={tailoring}>
+                      {tailoring ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                      {tailoring ? "Analyzing & Tailoring Resume..." : "Generate AI Tailored Resume"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              {/* Right Column: Preview & Refinement Chat */}
+              <div className="space-y-4 xl:col-span-7">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2.5">
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                    {tailoredContent ? "AI Tailored Resume Output" : "Source Resume Preview"}
+                  </p>
+                  {tailoredContent && selectedResume ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          downloadResumePdf({
+                            content: tailoredContent,
+                            template: selectedResume.template,
+                            title: `${selectedResume.title}-${company || "tailored"}`,
+                          })
+                        }
+                        className="text-xs h-8 gap-1.5"
+                      >
+                        <Download className="size-3.5" />
+                        Download PDF
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={savingVersion}
+                        onClick={handleSaveVersion}
+                        className="text-xs h-8 gap-1.5 font-medium"
+                      >
+                        <Save className="size-3.5" />
+                        {savingVersion ? "Saving..." : "Save Version"}
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
 
-                {tailorError ? (
-                  <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
-                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                    <span>{tailorError}</span>
-                  </div>
+                {/* AI Refinement Chat if Tailored Content exists */}
+                {tailoredContent && (
+                  <form onSubmit={handleChatRefinement} className="flex gap-2">
+                    <Input
+                      value={chatInstruction}
+                      onChange={(e) => setChatInstruction(e.target.value)}
+                      placeholder="Prompt AI: e.g. 'Make summary shorter', 'Emphasize React', 'Make bullets more technical'..."
+                      className="text-xs h-9"
+                    />
+                    <Button type="submit" size="sm" disabled={isRefining || !chatInstruction.trim()} className="gap-1.5 text-xs h-9 shrink-0">
+                      {isRefining ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      Refine
+                    </Button>
+                  </form>
+                )}
+
+                {selectedResume ? (
+                  <ResumePreview
+                    content={tailoredContent ?? normalizeResumeContent(selectedResume.content)}
+                    template={selectedResume.template}
+                  />
                 ) : null}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
-                <Button type="submit" className="w-full" disabled={tailoring}>
-                  <Sparkles className="size-4" />
-                  {tailoring ? "Tailoring Resume..." : "Generate Tailored Resume"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+      {/* TAB 2: BASE RESUMES & 12 THEMES */}
+      {activeTab === "base" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {resumes.map((resume) => (
+              <div
+                key={resume.id}
+                className="rounded-xl border border-border/80 bg-card p-5 shadow-xs hover:border-foreground/30 transition-all space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                      {resume.title}
+                      {resume.is_primary && (
+                        <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary text-[10px]">
+                          Primary
+                        </Badge>
+                      )}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5 capitalize">
+                      Theme: {resume.template}
+                    </p>
+                  </div>
+                </div>
 
-          <div className="space-y-4 xl:col-span-7">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                {tailoredContent
-                  ? "Tailored Output Preview"
-                  : "Source Resume Preview"}
-              </p>
-              {tailoredContent && selectedResume ? (
-                <div className="flex items-center gap-2">
+                <p className="text-[11px] text-muted-foreground line-clamp-2">
+                  {(resume.content as any)?.summary || "Full structured career resume."}
+                </p>
+
+                <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
+                  <Link href={`/dashboard/resumes/${resume.id}`}>
+                    <Button size="sm" variant="outline" className="h-7 text-xs">
+                      Edit Sections & Theme
+                    </Button>
+                  </Link>
+
                   <Button
-                    type="button"
-                    variant="outline"
                     size="sm"
+                    variant="ghost"
                     onClick={() =>
                       downloadResumePdf({
-                        content: tailoredContent,
-                        template: selectedResume.template,
-                        title: `${selectedResume.title}-${company || "tailored"}`,
+                        content: normalizeResumeContent(resume.content),
+                        template: resume.template,
+                        title: resume.title,
                       })
                     }
+                    className="h-7 text-xs gap-1"
                   >
-                    <Download className="size-3.5" />
-                    Download Tailored PDF
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={savingVersion}
-                    onClick={handleSaveVersion}
-                  >
-                    <Save className="size-3.5" />
-                    {savingVersion ? "Saving..." : "Save Tailored Version"}
+                    <Download className="h-3.5 w-3.5" /> PDF
                   </Button>
                 </div>
-              ) : null}
-            </div>
-
-            {selectedResume ? (
-              <ResumePreview
-                content={
-                  tailoredContent ?? normalizeResumeContent(selectedResume.content)
-                }
-                template={selectedResume.template}
-              />
-            ) : null}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Saved Tailored Versions</CardTitle>
-          <CardDescription>
-            Previously reviewed and saved job-specific resume versions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {versions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No tailored versions saved yet.
-            </p>
-          ) : (
-            <div className="divide-y divide-border">
-              {versions.map((ver) => (
-                <div
-                  key={ver.id}
-                  className="flex flex-col justify-between gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {ver.job_title || "Untitled Role"}
-                      {ver.company ? ` at ${ver.company}` : ""}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Saved{" "}
-                      {new Intl.DateTimeFormat("en-US", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                        timeZone: usage.timezone || "UTC",
-                      }).format(new Date(ver.created_at))}
-                    </p>
+      {/* TAB 3: TAILORED VERSIONS */}
+      {activeTab === "versions" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Saved Tailored Versions</CardTitle>
+            <CardDescription className="text-xs">
+              Review and restore previous job-specific tailored documents.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {versions.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center italic">
+                No tailored versions saved yet. Generate one in the Tailor tab.
+              </p>
+            ) : (
+              <div className="divide-y divide-border/60">
+                {versions.map((ver) => (
+                  <div
+                    key={ver.id}
+                    className="flex flex-col justify-between gap-3 py-3.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center"
+                  >
+                    <div>
+                      <p className="font-semibold text-sm text-foreground">
+                        {ver.job_title || "Untitled Role"}
+                        {ver.company ? ` at ${ver.company}` : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Created {new Date(ver.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          downloadResumePdf({
+                            content: normalizeResumeContent(ver.content),
+                            template: "modern-professional",
+                            title: `${ver.company || "tailored"}-${ver.job_title || "resume"}`,
+                          })
+                        }
+                        className="text-xs h-8 gap-1.5"
+                      >
+                        <Download className="size-3.5" />
+                        Download PDF
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeleteTarget(ver)}
+                        className="h-8 w-8 text-red-400 hover:text-red-300"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        downloadResumePdf({
-                          content: normalizeResumeContent(ver.content),
-                          template: "modern-professional",
-                          title: `${ver.company || "tailored"}-${ver.job_title || "resume"}`,
-                        })
-                      }
-                    >
-                      <Download className="size-3.5" />
-                      Download PDF
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => setDeleteTarget(ver)}
-                      aria-label="Delete tailored version"
-                    >
-                      <Trash2 className="size-3.5 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}
